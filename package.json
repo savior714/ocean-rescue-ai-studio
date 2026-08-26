@@ -1,0 +1,13 @@
+{
+  "name": "ocean-rescue-ai-studio-handoff",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Disposable Google AI Studio handoff shell for AidenGame Ocean Rescue.",
+  "scripts": {
+    "dev": "node bootstrap.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
