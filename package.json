@@ -14,7 +14,9 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "pixi.js": "^8.19.0"
+    "@types/three": "^0.185.4",
+    "pixi.js": "^8.19.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

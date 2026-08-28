@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Ocean Rescue — 옥토 바다 구조대</title>
-  <meta name="description" content="옥토 탐험선을 조종하여 위기에 처한 해양 동물을 구출하고 바다 생태계를 복원하는 하이퀄리티 인터랙티브 구조 게임">
+  <title>Space Explorer 3D — 태양계 3D 탐험대</title>
+  <meta name="description" content="AidenGame Space Explorer: 3D 태양계 탐험, 행성 카메라 플라이투, 달과 토성 고리 관측, 실시간 천문학 시간 제어 시스템">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
-    
+
     * {
       box-sizing: border-box;
       user-select: none;
@@ -16,16 +16,18 @@
     }
     body {
       font-family: 'Plus Jakarta Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #030d1a;
+      background-color: #030814;
       color: #f1f5f9;
       margin: 0;
       padding: 0;
       overflow: hidden;
       width: 100vw;
       height: 100vh;
+      touch-action: none;
     }
     .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
+      width: 5px;
+      height: 5px;
     }
     .custom-scrollbar::-webkit-scrollbar-track {
       background: rgba(15, 23, 42, 0.6);
@@ -38,240 +40,208 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
       background: rgba(56, 189, 248, 0.7);
     }
-    @keyframes pulse-glow {
-      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.4)); }
-      50% { transform: scale(1.04); filter: drop-shadow(0 0 24px rgba(251, 191, 36, 0.8)); }
+    @keyframes pulse-gentle {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.35)); }
+      50% { transform: scale(1.03); filter: drop-shadow(0 0 18px rgba(56, 189, 248, 0.75)); }
     }
-    .animate-glow {
-      animation: pulse-glow 2.5s infinite ease-in-out;
+    .animate-pulse-gentle {
+      animation: pulse-gentle 3s infinite ease-in-out;
     }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center relative bg-slate-950">
+<body class="relative w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex flex-col justify-between select-none">
 
-  <!-- Fullscreen 2D Interactive Canvas Layer -->
-  <div id="canvas-wrapper" class="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-auto z-0">
-    <canvas id="ocean-rescue-canvas" class="w-full h-full object-contain max-w-[1920px] max-h-[1080px]"></canvas>
+  <!-- ==================== 1. FULLSCREEN THREE.JS 3D CANVAS LAYER ==================== -->
+  <div id="canvas-container" class="absolute inset-0 w-full h-full z-0">
+    <canvas id="space-explorer-canvas" class="w-full h-full block touch-none"></canvas>
   </div>
 
-  <!-- Top Navigation & Stats Bar -->
-  <header class="absolute top-3 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/30 shadow-2xl pointer-events-auto">
-    <!-- Live Stats Group -->
-    <div class="flex items-center gap-5 text-xs sm:text-sm font-bold text-slate-200">
-      <div class="flex items-center gap-1.5">
-        <span class="text-cyan-400">🌊 생태 복원도:</span>
-        <span id="ocean-rescue-stat-resto" class="text-emerald-400 font-extrabold text-sm sm:text-base">0%</span>
+  <!-- ==================== 2. 2D FLOATING PLANET LABELS OVERLAY ==================== -->
+  <div id="screen-labels-layer" class="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- ==================== 3. TOP NAVIGATION & STATUS BAR ==================== -->
+  <header class="relative z-30 flex items-center justify-between gap-3 px-4 py-2.5 m-3 rounded-2xl bg-slate-900/85 backdrop-blur-md border border-cyan-500/30 shadow-2xl pointer-events-auto">
+    <!-- Brand & Date -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl animate-pulse-gentle">🚀</span>
+        <div>
+          <h1 class="text-sm sm:text-base font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-cyan-300 to-sky-200 leading-tight">
+            태양계 탐험대
+          </h1>
+          <div class="text-[10px] text-cyan-400/80 font-bold hidden sm:block">AidenGame Space Explorer 3D</div>
+        </div>
       </div>
-      <div class="flex items-center gap-1.5">
-        <span class="text-amber-400">별빛 크리스탈:</span>
-        <span id="ocean-rescue-stat-stars" class="text-amber-300 font-extrabold text-sm sm:text-base">120 ⭐️</span>
-      </div>
-      <div class="hidden md:flex items-center gap-1.5">
-        <span class="text-indigo-400">🎖️ 옥토 훈장:</span>
-        <span id="ocean-rescue-stat-badges" class="text-indigo-300 font-extrabold">0 / 5</span>
+
+      <!-- Date & Speed Badges -->
+      <div class="flex items-center gap-2 pl-3 border-l border-slate-700">
+        <div class="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800 text-xs font-bold text-slate-200">
+          <span class="text-amber-400">📅</span>
+          <span id="space-date-display">2026년 08월 28일</span>
+        </div>
+        <div id="space-speed-badge" class="text-xs font-bold text-emerald-300 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 hidden md:block">
+          🚀 7일 / 초
+        </div>
       </div>
     </div>
 
-    <!-- Navigation Action Buttons -->
-    <div class="flex items-center gap-2 flex-wrap">
-      <button id="btn-nav-missions" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
-        🚨 미션 목록
+    <!-- Quick Utilities -->
+    <div class="flex items-center gap-2">
+      <button id="btn-toggle-orbits" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 transition-all hover:scale-105 active:scale-95 flex items-center gap-1" title="행성 공전 궤도선 표시/숨김">
+        <span>🪐</span> <span class="hidden sm:inline">궤도선 켜짐</span>
       </button>
-      <button id="btn-nav-garage" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
-        🛠️ 탐험선 격납고
+      <button id="btn-open-help" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800/80 hover:bg-slate-700 border border-slate-600 text-slate-200 transition-all hover:scale-105 active:scale-95 flex items-center gap-1">
+        <span>📖</span> <span class="hidden sm:inline">조작 가이드</span>
       </button>
-      <button id="btn-nav-logbook" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/50 text-indigo-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
-        📖 생태 도감
-      </button>
-      <button id="btn-nav-quiz" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
-        🧠 생태 퀴즈
-      </button>
-      <button id="btn-toggle-bgm" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
-        🎵 BGM 켜짐
+      <button id="btn-toggle-sound" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 transition-all hover:scale-105 active:scale-95 flex items-center gap-1">
+        <span>🔊</span> <span class="hidden sm:inline">사운드 켜짐</span>
       </button>
     </div>
   </header>
 
-  <!-- ==================== VIEW 1: MISSION SELECT ==================== -->
-  <main id="view-mission-select" class="relative z-20 w-full max-w-6xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto animate-fade-in max-h-[85vh] overflow-y-auto custom-scrollbar mt-12">
-    <div class="text-center mb-6">
-      <div class="text-5xl sm:text-6xl mb-2 animate-glow">🐙 🚨 🌊</div>
-      <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-cyan-300 to-amber-200 tracking-tight drop-shadow-md">
-        옥토 바다 구조대 : Ocean Rescue
-      </h1>
-      <p class="text-sm sm:text-base text-cyan-200/90 font-medium max-w-2xl mx-auto mt-2 leading-relaxed">
-        위기에 처한 해양 동물들의 조난 신호가 수신되었습니다! 미션을 선택하고 탐험선(GUP)을 조종하여 신속히 출동하세요.
-      </p>
-    </div>
+  <!-- ==================== 4. FLOATING RETURN TO OVERVIEW ACTION BUTTON ==================== -->
+  <button id="btn-return-overview" class="hidden absolute top-20 left-4 z-30 px-4 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs sm:text-sm shadow-xl shadow-cyan-500/30 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 border-2 border-white/50 animate-bounce">
+    <span class="text-base">🌌</span>
+    <span>태양계 전체보기</span>
+  </button>
 
-    <!-- Mission Cards Grid -->
-    <div id="mission-card-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full"></div>
-  </main>
-
-  <!-- ==================== VIEW 2: GUP SELECT ==================== -->
-  <main id="view-gup-select" class="hidden relative z-20 w-full max-w-5xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto max-h-[85vh] overflow-y-auto custom-scrollbar mt-12">
-    <div class="text-center mb-6">
-      <h2 id="gup-select-mission-title" class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-2">
-        🎯 출동 탐험선(GUP) 선택
-      </h2>
-      <p class="text-sm text-cyan-200 font-medium">
-        미션 환경과 구조 작업에 최적화된 옥토포드 탐험선을 선택해 탑승하세요.
-      </p>
-    </div>
-
-    <div id="gup-card-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 w-full mb-6"></div>
-  </main>
-
-  <!-- ==================== VIEW 3: GUP GARAGE & UPGRADES ==================== -->
-  <main id="view-gup-garage" class="hidden relative z-20 w-full max-w-5xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto max-h-[85vh] overflow-y-auto custom-scrollbar mt-12">
-    <div class="text-center mb-6">
-      <div class="text-5xl mb-2">🛠️ ⚡ 🚤</div>
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-2">
-        옥토포드 탐험선 격납고 & 강화소
-      </h2>
-      <p class="text-sm text-cyan-200 font-medium">
-        구조 미션과 퀴즈로 획득한 별빛 크리스탈(⭐️)로 탐험선의 속도, 실드, 소나를 강화하세요!
-      </p>
-    </div>
-
-    <div id="garage-gup-list" class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full"></div>
-  </main>
-
-  <!-- ==================== VIEW 4: LAUNCH CINEMATIC ==================== -->
-  <main id="view-launch" class="hidden relative z-20 w-full max-w-2xl px-6 py-10 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-cyan-500/80 rounded-3xl shadow-2xl backdrop-blur-xl text-center mt-8">
-    <div class="text-xs font-bold text-amber-400 bg-amber-950/80 px-4 py-1 rounded-full border border-amber-500/50 mb-4 animate-pulse">
-      🚨 옥토경보 발령 (OCTO-ALERT ACTIVATED) 🚨
-    </div>
-    
-    <div class="flex items-center gap-4 bg-slate-950/70 p-4 rounded-2xl border border-slate-800 mb-6 w-full max-w-md">
-      <div id="launch-companion-avatar" class="text-5xl p-2 bg-slate-800/80 rounded-xl">🐧</div>
-      <div class="text-left">
-        <h4 id="launch-companion-name" class="text-lg font-bold text-cyan-300">페소 (Peso)</h4>
-        <p class="text-xs text-slate-400 font-medium">작전 지원 통신관</p>
+  <!-- ==================== 5. FOCUSED PLANET DETAIL CARD ==================== -->
+  <aside id="planet-detail-card" class="hidden absolute top-20 right-4 bottom-28 w-full max-w-sm z-30 flex flex-col pointer-events-auto bg-slate-900/90 backdrop-blur-xl border border-cyan-500/40 rounded-3xl shadow-2xl overflow-hidden p-5 custom-scrollbar overflow-y-auto">
+    <!-- Header -->
+    <div class="flex items-start justify-between gap-2 mb-3 pb-3 border-b border-slate-800">
+      <div>
+        <h2 id="card-planet-title" class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+          <span>🌍</span> <span>지구</span>
+        </h2>
+        <span id="card-planet-category" class="inline-block text-[11px] font-bold text-cyan-400 bg-cyan-950/80 px-2.5 py-0.5 rounded-full border border-cyan-500/30 mt-1">
+          암석형 행성
+        </span>
       </div>
     </div>
 
-    <p id="launch-briefing-text" class="text-base sm:text-lg text-slate-200 font-medium leading-relaxed mb-8 px-4">
-      산호초 지대에서 바다거북이가 폐그물에 엉켜 있습니다! 신속히 출동하세요!
+    <!-- Short Memorable Comparison -->
+    <div class="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-3 mb-3">
+      <div class="text-[11px] font-bold text-amber-400 mb-0.5">🌟 한눈에 보는 특징</div>
+      <p id="card-planet-comparison" class="text-xs sm:text-sm text-amber-100 font-medium leading-relaxed">
+        액체 물과 산소가 풍부하여 유일하게 생명체가 살아 숨 쉬는 우리 집!
+      </p>
+    </div>
+
+    <!-- Overview Text -->
+    <p id="card-planet-overview" class="text-xs text-slate-300 leading-relaxed mb-4">
+      우주에서 가장 아름다운 푸른 보석 행성으로, 하나의 다정한 달이 주위를 돌고 있어요.
     </p>
 
-    <div class="text-center mb-6">
-      <div class="text-xs uppercase font-bold text-slate-400 mb-1">발진 카운트다운</div>
-      <div id="launch-countdown" class="text-6xl sm:text-7xl font-black text-amber-400 animate-bounce tracking-widest">
-        3
-      </div>
-    </div>
-  </main>
+    <!-- 4-Grid Core Astronomical Stats -->
+    <div id="card-planet-stats" class="grid grid-cols-2 gap-2 mb-4"></div>
 
-  <!-- ==================== VIEW 5: TRAVEL OVERLAY CONTROLS ==================== -->
-  <aside id="view-travel" class="hidden absolute bottom-6 right-6 z-30 flex flex-col items-end gap-3 pointer-events-auto">
-    <button id="btn-sonar-ping" class="px-5 py-3 rounded-2xl font-black bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/30 flex items-center gap-2 transition-all hover:scale-105 active:scale-95">
-      <span class="text-xl">📡</span>
-      <span>광역 소나 탐지 (SPACE)</span>
-    </button>
-    <div class="bg-slate-900/80 border border-slate-700/80 px-4 py-2 rounded-xl text-xs text-slate-300 backdrop-blur-sm">
-      조작: <strong>마우스/터치 드래그</strong> 또는 <strong>방향키 / WASD</strong>
+    <!-- Kid-Friendly Fun Facts List -->
+    <div class="mb-4">
+      <div class="text-xs font-bold text-cyan-300 mb-2 flex items-center gap-1">
+        <span>💡</span> <span>신기한 우주 비밀</span>
+      </div>
+      <ul id="card-planet-facts" class="space-y-2 bg-slate-950/60 p-3 rounded-2xl border border-slate-800"></ul>
     </div>
+
+    <!-- Extra Dynamic Action Buttons -->
+    <div id="card-planet-extra-actions" class="space-y-2 mt-auto pt-2"></div>
   </aside>
 
-  <!-- ==================== VIEW 6: RESCUE OVERLAY CONTROLS ==================== -->
-  <aside id="view-rescue" class="hidden absolute bottom-6 left-6 z-30 flex items-center gap-3 pointer-events-auto">
-    <div class="bg-slate-900/90 border border-cyan-500/50 px-5 py-3 rounded-2xl text-xs sm:text-sm text-cyan-200 backdrop-blur-md shadow-xl">
-      💡 <strong>구조 안내:</strong> 화면의 엉킨 장애물을 터치/드래그하여 제거한 후 바이탈 치료를 완료하세요!
-    </div>
-  </aside>
+  <!-- ==================== 6. BOTTOM CONTROL SUITE: RIBBON & TIME CONTROLS ==================== -->
+  <div class="relative z-30 w-full flex flex-col items-center gap-2 px-3 pb-3 pointer-events-auto">
 
-  <!-- ==================== VIEW 7: MISSION SUCCESS ==================== -->
-  <main id="view-success" class="hidden relative z-20 w-full max-w-xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-amber-400/80 rounded-3xl shadow-2xl backdrop-blur-xl text-center mt-6">
-    <div class="text-6xl mb-2 animate-bounce">🎉 🏆 🌟</div>
-    <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-1">구조 작전 성공!</h2>
-    <p class="text-xs text-emerald-400 font-bold mb-4">MISSION ACCOMPLISHED</p>
+    <!-- Planet Fast-Navigation Ribbon -->
+    <nav id="planet-nav-ribbon" class="w-full max-w-4xl flex items-center justify-start sm:justify-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-900/85 backdrop-blur-md border border-slate-800 shadow-xl overflow-x-auto custom-scrollbar"></nav>
 
-    <div class="flex items-center justify-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 w-full mb-4">
-      <div id="success-animal-icon" class="text-5xl">🐢</div>
-      <div class="text-left">
-        <h4 id="success-animal-name" class="text-lg font-bold text-white">푸른바다거북</h4>
-        <div id="success-badge-name" class="text-xs text-amber-400 font-bold">🎖️ 산호초 거북 수호 훈장</div>
-      </div>
-      <div class="ml-auto text-right">
-        <div class="text-xs text-slate-400">보상 획득</div>
-        <div id="success-stars-earned" class="text-xl font-extrabold text-amber-300">+50 ⭐️</div>
-      </div>
-    </div>
-
-    <!-- Ecology Fact Card -->
-    <div class="bg-cyan-950/50 border border-cyan-800/60 p-4 rounded-2xl text-left mb-6 w-full">
-      <div class="text-xs font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
-        <span>📖</span> <span>옥토 해양 생태 지식:</span>
-      </div>
-      <p id="success-ecology-fact" class="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-        바다거북은 아가미가 아닌 폐로 숨을 쉬기 때문에 20~30분마다 물 위로 올라와야 해요. 폐그물은 거북이에게 치명적인 위협이 됩니다.
-      </p>
-    </div>
-
-    <div class="flex items-center justify-center gap-3 w-full">
-      <button id="btn-success-quiz" class="flex-1 py-3 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white text-sm shadow-md transition-all">
-        🧠 생태 퀴즈 풀기 (+별 보상)
+    <!-- Astronomical Time Controls Bar -->
+    <div id="time-controls-bar" class="w-full max-w-2xl flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/30 shadow-xl">
+      <button id="btn-time-prev10" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all active:scale-95" title="10일 뒤로 가기">
+        ◀ 10일
       </button>
-      <button id="btn-success-continue" class="flex-1 py-3 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm shadow-lg shadow-amber-500/20 transition-all">
-        📋 다음 미션으로
+
+      <button id="btn-time-pause" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black bg-amber-600 hover:bg-amber-500 text-white shadow-md transition-all active:scale-95">
+        ⏸️ 일시정지
+      </button>
+
+      <div class="h-4 w-px bg-slate-700 mx-1 hidden sm:block"></div>
+
+      <!-- Speed Presets -->
+      <button id="btn-time-realtime" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all active:scale-95">
+        실시간
+      </button>
+      <button id="btn-speed-1d" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all active:scale-95">
+        1일/초
+      </button>
+      <button id="btn-speed-7d" class="px-2.5 py-1.5 rounded-xl text-xs font-black bg-cyan-500 text-slate-950 shadow-md transition-all active:scale-95">
+        7일/초
+      </button>
+      <button id="btn-speed-30d" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all active:scale-95">
+        30일/초
+      </button>
+      <button id="btn-speed-365d" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all active:scale-95">
+        1년/초
+      </button>
+
+      <button id="btn-time-next10" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all active:scale-95" title="10일 앞으로 가기">
+        10일 ▶
       </button>
     </div>
-  </main>
 
-  <!-- ==================== VIEW 8: ECO QUIZ CHALLENGE ==================== -->
-  <main id="view-quiz" class="hidden relative z-20 w-full max-w-xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-emerald-500/80 rounded-3xl shadow-2xl backdrop-blur-xl text-center mt-6">
-    <div class="flex items-center justify-between w-full mb-4">
-      <span id="quiz-step-index" class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
-        문제 1 / 6
-      </span>
-      <span class="text-xs text-amber-400 font-bold">정답 시 +20 ⭐️</span>
+    <!-- Scale Notice Disclaimer -->
+    <div class="text-[10px] text-slate-400 text-center">
+      🔭 시각적 관찰을 위해 행성의 크기와 궤도 거리가 화면 비율에 맞게 조정되었습니다.
     </div>
+  </div>
 
-    <div id="quiz-animal-icon" class="text-6xl mb-3">🐢</div>
-    <h3 id="quiz-question-text" class="text-base sm:text-lg font-bold text-white mb-6 leading-snug">
-      바다거북은 숨을 쉬기 위해 어디로 올라와야 할까요?
-    </h3>
-
-    <div id="quiz-options-container" class="space-y-2.5 w-full mb-4"></div>
-
-    <div id="quiz-explanation-box" class="hidden text-xs sm:text-sm text-cyan-200 bg-cyan-950/70 border border-cyan-800 p-3.5 rounded-xl text-left leading-relaxed w-full">
-      💡 해설: 바다거북은 아가미가 아닌 허파(폐)로 숨을 쉽니다.
-    </div>
-  </main>
-
-  <!-- ==================== VIEW 9: LOGBOOK & BADGES ==================== -->
-  <main id="view-logbook" class="hidden relative z-20 w-full max-w-4xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-indigo-500/80 rounded-3xl shadow-2xl backdrop-blur-xl max-h-[85vh] overflow-y-auto custom-scrollbar mt-8">
-    <div class="text-center mb-6">
-      <div class="text-5xl mb-2">📖 🎖️ 🌊</div>
-      <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-1">
-        옥토 생태 도감 & 명예 훈장
-      </h2>
-      <p class="text-xs sm:text-sm text-indigo-200 font-medium">
-        구조에 성공한 해양 동물들의 생태 기록과 수여받은 명예 훈장 목록입니다.
-      </p>
-    </div>
-
-    <!-- Summary Stats -->
-    <div class="grid grid-cols-2 gap-4 w-full max-w-md mb-6 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-      <div>
-        <div class="text-xs text-slate-400 mb-1">총 구출한 해양 생물</div>
-        <div id="logbook-total-animals" class="text-2xl font-black text-cyan-300">0마리</div>
+  <!-- ==================== 7. HELP & GESTURE GUIDE MODAL ==================== -->
+  <div id="space-help-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm pointer-events-auto">
+    <div class="w-full max-w-md bg-slate-900 border-2 border-cyan-500/80 rounded-3xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
+        <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
+          <span>🚀</span> <span>태양계 3D 탐험 가이드</span>
+        </h3>
+        <button id="btn-close-help" class="text-slate-400 hover:text-white text-xl font-bold p-1">✕</button>
       </div>
-      <div>
-        <div class="text-xs text-slate-400 mb-1">전 지구 해양 복원율</div>
-        <div id="logbook-restoration-text" class="text-2xl font-black text-emerald-400">0%</div>
+
+      <div class="space-y-3.5 text-xs sm:text-sm text-slate-200">
+        <div class="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <span class="text-2xl">👆</span>
+          <div>
+            <div class="font-bold text-cyan-300">행성 터치 & 클릭</div>
+            <div class="text-xs text-slate-300">원하는 행성을 탭하면 카메라가 부드럽게 날아가 가까이에서 관찰합니다.</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <span class="text-2xl">🔄</span>
+          <div>
+            <div class="font-bold text-cyan-300">드래그하여 360° 회전</div>
+            <div class="text-xs text-slate-300">화면을 손가락이나 마우스로 드래그하여 우주와 행성의 낮과 밤을 둘러봅니다.</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <span class="text-2xl">🔍</span>
+          <div>
+            <div class="font-bold text-cyan-300">핀치 / 휠로 확대 및 축소</div>
+            <div class="text-xs text-slate-300">두 손가락으로 벌리거나 마우스 휠을 굴려 거리를 조절할 수 있습니다.</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+          <span class="text-2xl">⏱️</span>
+          <div>
+            <div class="font-bold text-cyan-300">시간 속도 조절</div>
+            <div class="text-xs text-slate-300">하단 시간 컨트롤러로 행성들이 태양 주위를 공전하는 모습을 빠르게 관찰해보세요.</div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- Restoration Progress Bar -->
-    <div class="w-full max-w-md bg-slate-800 rounded-full h-3.5 mb-8 overflow-hidden p-0.5 border border-slate-700">
-      <div id="logbook-restoration-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+      <button onclick="document.getElementById('space-help-modal').classList.add('hidden')" class="w-full mt-5 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-sm shadow-lg transition-all active:scale-95">
+        탐험 시작하기!
+      </button>
     </div>
-
-    <!-- Badge List Grid -->
-    <div id="logbook-badge-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full"></div>
-  </main>
+  </div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>
