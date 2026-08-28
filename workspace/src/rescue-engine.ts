@@ -11,6 +11,16 @@ import {
 } from "./types";
 import { Audio } from "./audio";
 import { RescueReadiness } from "./travel/readiness";
+import { renderGupSubmarine } from "./render-gup";
+import {
+  renderSeaTurtle,
+  renderCrab,
+  renderHumpbackWhale,
+  renderBraidedRope,
+  renderReefBoulder,
+  renderHoloBioScan,
+  renderMarineTreat
+} from "./render-creatures";
 
 export class RescueEngine {
   private canvas: HTMLCanvasElement;
@@ -560,90 +570,109 @@ export class RescueEngine {
   }
 
   private renderAnimalSubject() {
-    this.ctx.save();
-    this.ctx.translate(this.animalX, this.animalY);
-    this.ctx.rotate(this.animalAngle);
+    const creatureState = {
+      healthPercent: this.vitals.healthPercent,
+      isHealed: this.vitals.healthPercent >= 80,
+      isCelebration: this.currentPhase === "celebration",
+      time: performance.now(),
+      swimOffset: this.animalSwimOffset,
+      pointerX: this.pointerPos.x,
+      pointerY: this.pointerPos.y
+    };
 
-    // Animal Aura / Glow
-    this.ctx.shadowColor = this.currentPhase === "celebration" ? "#ffd54f" : "rgba(0,0,0,0.5)";
-    this.ctx.shadowBlur = 24;
-
-    // Animal Emoji / Avatar
-    this.ctx.font = "110px sans-serif";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.fillText(this.mission.animalIcon, 0, 0);
-
-    // Relief Expression if healed
-    if (this.vitals.healthPercent > 80) {
-      this.ctx.font = "28px sans-serif";
-      this.ctx.fillText("✨", 45, -45);
+    if (this.mission.id === "sea-turtle") {
+      renderSeaTurtle(this.ctx, this.animalX, this.animalY, this.animalAngle, creatureState);
+    } else if (this.mission.id === "crab") {
+      renderCrab(this.ctx, this.animalX, this.animalY, this.animalAngle, creatureState);
+    } else if (this.mission.id === "young-whale") {
+      renderHumpbackWhale(this.ctx, this.animalX, this.animalY, this.animalAngle, creatureState);
+    } else {
+      // Fallback with enhanced procedural aura
+      this.ctx.save();
+      this.ctx.translate(this.animalX, this.animalY);
+      this.ctx.rotate(this.animalAngle);
+      this.ctx.shadowColor = this.currentPhase === "celebration" ? "#ffd54f" : "rgba(0,0,0,0.5)";
+      this.ctx.shadowBlur = 24;
+      this.ctx.font = "110px sans-serif";
+      this.ctx.textAlign = "center";
+      this.ctx.textBaseline = "middle";
+      this.ctx.fillText(this.mission.animalIcon, 0, 0);
+      if (this.vitals.healthPercent > 80) {
+        this.ctx.font = "28px sans-serif";
+        this.ctx.fillText("✨", 45, -45);
+      }
+      this.ctx.restore();
     }
-    this.ctx.restore();
   }
 
   private renderObstacles() {
-    // 1. Turtle Ropes
+    const time = performance.now();
+
+    // 1. Turtle Ropes (Braided Nylon with Frayed Ends)
     if (this.mission.id === "sea-turtle") {
       this.turtleRopes.forEach((r) => {
         if (r.cut) return;
-        this.ctx.save();
-        this.ctx.strokeStyle = r.color;
-        this.ctx.lineWidth = 10;
-        this.ctx.lineCap = "round";
-        this.ctx.shadowColor = "#000";
-        this.ctx.shadowBlur = 8;
-        this.ctx.beginPath();
-        this.ctx.moveTo(r.x1, r.y1);
-        this.ctx.lineTo(r.x2, r.y2);
-        this.ctx.stroke();
-
-        // Warning cut tag
-        this.ctx.fillStyle = "#ffd54f";
-        this.ctx.font = "bold 13px sans-serif";
-        this.ctx.fillText("✂️ 레이저로 절단", (r.x1 + r.x2) / 2 - 40, (r.y1 + r.y2) / 2 - 12);
-        this.ctx.restore();
+        const isHovered = this.pointToSegmentDist(this.pointerPos.x, this.pointerPos.y, r.x1, r.y1, r.x2, r.y2) < 35;
+        renderBraidedRope(this.ctx, r.x1, r.y1, r.x2, r.y2, r.color, 0, isHovered, time);
       });
     }
 
-    // 2. Crab Rocks
+    // 2. Crab Rocks (Mossy Limestone Boulders)
     else if (this.mission.id === "crab") {
       this.crabRocks.forEach((rock) => {
         if (rock.cleared) return;
-        this.ctx.save();
-        this.ctx.fillStyle = rock.color;
-        this.ctx.strokeStyle = "#90a4ae";
-        this.ctx.lineWidth = 3;
-        this.ctx.shadowColor = "rgba(0,0,0,0.6)";
-        this.ctx.shadowBlur = 14;
-        this.ctx.beginPath();
-        this.ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.stroke();
-
-        this.ctx.fillStyle = "#fff";
-        this.ctx.font = "bold 13px sans-serif";
-        this.ctx.textAlign = "center";
-        this.ctx.fillText("🪨 드래그하여 제거", rock.x, rock.y);
-        this.ctx.restore();
+        renderReefBoulder(this.ctx, rock.x, rock.y, rock.radius, !!rock.isBeingDragged, time);
       });
     }
 
-    // 3. Whale Debris
+    // 3. Whale Debris (Industrial Cargo Containers)
     else if (this.mission.id === "young-whale") {
       this.whaleDebrisList.forEach((d) => {
         if (d.cleared) return;
         this.ctx.save();
-        this.ctx.fillStyle = d.color;
-        this.ctx.beginPath();
-        this.ctx.roundRect(d.x - d.width / 2, d.y - d.height / 2, d.width, d.height, 12);
-        this.ctx.fill();
+        this.ctx.translate(d.x, d.y);
 
-        this.ctx.fillStyle = "#fff";
+        // Drop shadow
+        this.ctx.fillStyle = "rgba(0, 10, 25, 0.5)";
+        this.ctx.filter = "blur(8px)";
+        this.ctx.beginPath();
+        this.ctx.roundRect(-d.width / 2, -d.height / 2 + 12, d.width, d.height, 10);
+        this.ctx.fill();
+        this.ctx.filter = "none";
+
+        // Metal crate body
+        const crateGrad = this.ctx.createLinearGradient(0, -d.height / 2, 0, d.height / 2);
+        crateGrad.addColorStop(0, "#ff9800");
+        crateGrad.addColorStop(0.5, d.color || "#e65100");
+        crateGrad.addColorStop(1, "#bf360c");
+
+        this.ctx.fillStyle = crateGrad;
+        this.ctx.strokeStyle = "#3e2723";
+        this.ctx.lineWidth = 2.5;
+        this.ctx.beginPath();
+        this.ctx.roundRect(-d.width / 2, -d.height / 2, d.width, d.height, 10);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        // Hazard Chevrons / Stripes
+        this.ctx.fillStyle = "rgba(33, 33, 33, 0.4)";
+        for (let i = -d.width / 2 + 8; i < d.width / 2 - 8; i += 18) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(i, -d.height / 2 + 4);
+          this.ctx.lineTo(i + 10, -d.height / 2 + 4);
+          this.ctx.lineTo(i - 4, d.height / 2 - 4);
+          this.ctx.lineTo(i - 14, d.height / 2 - 4);
+          this.ctx.closePath();
+          this.ctx.fill();
+        }
+
+        // Label
+        this.ctx.fillStyle = "#ffffff";
         this.ctx.font = "bold 12px sans-serif";
         this.ctx.textAlign = "center";
-        this.ctx.fillText(d.name, d.x, d.y);
-        this.ctx.fillText("🧲 탭하여 견인", d.x, d.y + 16);
+        this.ctx.fillText(d.name, 0, -4);
+        this.ctx.fillStyle = "#ffd54f";
+        this.ctx.fillText("🧲 마그넷 견인", 0, 14);
         this.ctx.restore();
       });
     }
@@ -653,8 +682,8 @@ export class RescueEngine {
       this.otterTangles.forEach((t) => {
         if (t.cleared) return;
         this.ctx.save();
-        this.ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-        this.ctx.strokeStyle = "#e0f7fa";
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        this.ctx.strokeStyle = "#80deea";
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
         this.ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
@@ -664,7 +693,7 @@ export class RescueEngine {
         this.ctx.fillStyle = "#004d40";
         this.ctx.font = "bold 12px sans-serif";
         this.ctx.textAlign = "center";
-        this.ctx.fillText("탭하여 매듭 풀기", t.x, t.y);
+        this.ctx.fillText("매듭 풀기", t.x, t.y);
         this.ctx.restore();
       });
     }
@@ -674,7 +703,7 @@ export class RescueEngine {
       this.squidCrystals.forEach((c) => {
         if (c.cleared) return;
         this.ctx.save();
-        this.ctx.fillStyle = "rgba(0, 229, 255, 0.5)";
+        this.ctx.fillStyle = "rgba(0, 229, 255, 0.6)";
         this.ctx.strokeStyle = "#ffd54f";
         this.ctx.lineWidth = 3;
         this.ctx.beginPath();
@@ -689,25 +718,66 @@ export class RescueEngine {
         this.ctx.restore();
       });
     }
+
+    // Laser / Tool Beam from GUP Arm to Pointer while interacting
+    if (this.isPointerDown && this.currentPhase === "danger_removal") {
+      this.ctx.save();
+      const armStartX = 180 + 36 * 1.35;
+      const armStartY = 360 + 14 * 1.35;
+
+      // Laser Beam Core
+      const beamGrad = this.ctx.createLinearGradient(armStartX, armStartY, this.pointerPos.x, this.pointerPos.y);
+      beamGrad.addColorStop(0, "rgba(255, 213, 79, 0.9)");
+      beamGrad.addColorStop(0.5, "rgba(255, 152, 0, 0.95)");
+      beamGrad.addColorStop(1, "rgba(255, 235, 59, 1.0)");
+
+      this.ctx.strokeStyle = beamGrad;
+      this.ctx.lineWidth = 4;
+      this.ctx.shadowColor = "#ffb300";
+      this.ctx.shadowBlur = 16;
+      this.ctx.beginPath();
+      this.ctx.moveTo(armStartX, armStartY);
+      this.ctx.lineTo(this.pointerPos.x, this.pointerPos.y);
+      this.ctx.stroke();
+
+      // Plasma Cutting Point at Cursor
+      this.ctx.fillStyle = "#ffffff";
+      this.ctx.beginPath();
+      this.ctx.arc(this.pointerPos.x, this.pointerPos.y, 7, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    }
   }
 
   private renderBioCareStage() {
+    const time = performance.now();
     this.ctx.save();
-    // Clinic Care Circle around Animal
-    this.ctx.strokeStyle = "rgba(77, 208, 225, 0.5)";
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([8, 8]);
-    this.ctx.beginPath();
-    this.ctx.arc(this.animalX, this.animalY, 140, 0, Math.PI * 2);
-    this.ctx.stroke();
-    this.ctx.setLineDash([]);
 
-    // Action Tool Floating Prompt
-    this.ctx.fillStyle = "rgba(8, 24, 44, 0.9)";
+    // 1. High-Tech Holographic Medical Scanner Grid
+    if (this.careSubStep === "scan") {
+      renderHoloBioScan(this.ctx, this.animalX, this.animalY, 130, time);
+    } else {
+      // Gentle clinic care circle
+      this.ctx.strokeStyle = "rgba(77, 208, 225, 0.4)";
+      this.ctx.lineWidth = 2;
+      this.ctx.setLineDash([8, 8]);
+      this.ctx.beginPath();
+      this.ctx.arc(this.animalX, this.animalY, 140, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+    }
+
+    // 2. Nutritious Treat Icon floating in Feeding Step
+    if (this.careSubStep === "feed") {
+      renderMarineTreat(this.ctx, this.animalX + 90, this.animalY - 30, this.mission.careTreatIcon, time);
+    }
+
+    // 3. Action Tool Floating Prompt
+    this.ctx.fillStyle = "rgba(8, 24, 44, 0.92)";
     this.ctx.strokeStyle = "#ffd54f";
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
-    this.ctx.roundRect(this.animalX - 160, this.animalY + 120, 320, 48, 24);
+    this.ctx.roundRect(this.animalX - 170, this.animalY + 125, 340, 50, 25);
     this.ctx.fill();
     this.ctx.stroke();
 
@@ -715,11 +785,11 @@ export class RescueEngine {
     this.ctx.font = "bold 14px sans-serif";
     this.ctx.textAlign = "center";
     if (this.careSubStep === "scan") {
-      this.ctx.fillText("🔍 동물을 탭하여 바이탈을 스캔하세요!", this.animalX, this.animalY + 150);
+      this.ctx.fillText("🔍 동물을 탭하여 바이탈을 스캔하세요!", this.animalX, this.animalY + 155);
     } else if (this.careSubStep === "spray") {
-      this.ctx.fillText(`🧴 치유 연고 분사 중 (${this.vitals.medicineSprayed}%)`, this.animalX, this.animalY + 150);
+      this.ctx.fillText(`🧴 치유 연고 분사 중 (${this.vitals.medicineSprayed}%)`, this.animalX, this.animalY + 155);
     } else if (this.careSubStep === "feed") {
-      this.ctx.fillText(`${this.mission.careTreatIcon} ${this.mission.careTreatName} 먹여주기 (${this.vitals.treatFedCount}/2)`, this.animalX, this.animalY + 150);
+      this.ctx.fillText(`${this.mission.careTreatIcon} ${this.mission.careTreatName} 먹여주기 (${this.vitals.treatFedCount}/2)`, this.animalX, this.animalY + 155);
     }
     this.ctx.restore();
   }
@@ -727,31 +797,24 @@ export class RescueEngine {
   private renderDockedGup() {
     this.ctx.save();
     this.ctx.translate(180, 360);
-    // GUP Submarine Body
-    this.ctx.fillStyle = this.gup.color;
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, 0, 80, 48, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // Canopy & Companion
-    this.ctx.fillStyle = "#80deea";
-    this.ctx.beginPath();
-    this.ctx.arc(25, -10, 24, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    this.ctx.font = "26px sans-serif";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.fillText(this.mission.companionAvatar, 25, -10);
-
-    // Mechanical Rescue Arm extending
-    this.ctx.strokeStyle = "#b0bec5";
-    this.ctx.lineWidth = 8;
-    this.ctx.beginPath();
-    this.ctx.moveTo(60, 10);
-    this.ctx.lineTo(130, 0);
-    this.ctx.lineTo(210, -20);
-    this.ctx.stroke();
+    renderGupSubmarine(this.ctx, {
+      gupId: this.gup.id,
+      color: this.gup.color,
+      accentColor: this.gup.accentColor,
+      subPitch: 0,
+      currentSpeed: 0,
+      isBoosting: false,
+      boostTimer: 0,
+      shieldEnergy: 0,
+      maxShield: 100,
+      companionAvatar: this.mission.companionAvatar,
+      scale: 1.35,
+      isDocked: true,
+      armExtended: true,
+      armTargetX: 180,
+      armTargetY: -10,
+      time: performance.now()
+    });
     this.ctx.restore();
   }
 

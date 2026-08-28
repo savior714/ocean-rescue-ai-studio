@@ -12,6 +12,7 @@ import {
 } from "./types";
 import { Audio } from "./audio";
 import { RescueReadiness } from "./travel/readiness";
+import { renderGupSubmarine } from "./render-gup";
 
 interface BackgroundDistantCreature {
   x: number;
@@ -786,62 +787,24 @@ export class TravelEngine {
     this.ctx.fill();
     this.ctx.restore();
 
-    // 10. Draw GUP Submarine
+    // 10. Draw GUP Submarine (High-Fidelity Procedural Modeling)
     this.ctx.save();
     this.ctx.translate(this.subX, this.subY);
-    this.ctx.rotate(this.subPitch);
-
-    // Energy Shield Bubble if upgraded/active
-    if (this.shieldEnergy > 0) {
-      this.ctx.save();
-      this.ctx.strokeStyle = `rgba(0, 229, 255, ${0.3 + (this.shieldEnergy / this.maxShield) * 0.4})`;
-      this.ctx.lineWidth = 3;
-      this.ctx.shadowColor = "#00e5ff";
-      this.ctx.shadowBlur = 12;
-      this.ctx.beginPath();
-      this.ctx.ellipse(0, 0, 58, 38, 0, 0, Math.PI * 2);
-      this.ctx.stroke();
-      this.ctx.restore();
-    }
-
-    // Submarine Body (Streamlined Pod)
-    this.ctx.fillStyle = this.gup.color;
-    this.ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
-    this.ctx.shadowBlur = 10;
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, 0, 46, 28, 0, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // Accent Stripe
-    this.ctx.fillStyle = this.gup.accentColor;
-    this.ctx.beginPath();
-    this.ctx.ellipse(0, 10, 40, 8, 0, 0, Math.PI);
-    this.ctx.fill();
-
-    // Glass Canopy (Cockpit)
-    this.ctx.fillStyle = "#80deea";
-    this.ctx.beginPath();
-    this.ctx.arc(14, -6, 15, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // Pilot Silhouette & Companion
-    this.ctx.font = "16px sans-serif";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.fillText(this.mission.companionAvatar, 14, -6);
-
-    // Submarine Propeller / Jet Thruster
-    this.ctx.fillStyle = "#37474f";
-    this.ctx.fillRect(-48, -8, 8, 16);
-    if (this.boostTimer > 0) {
-      // Jet fire
-      this.ctx.fillStyle = "#ff9800";
-      this.ctx.beginPath();
-      this.ctx.moveTo(-48, -6);
-      this.ctx.lineTo(-75 - Math.random() * 20, 0);
-      this.ctx.lineTo(-48, 6);
-      this.ctx.fill();
-    }
+    renderGupSubmarine(this.ctx, {
+      gupId: this.gup.id,
+      color: this.gup.color,
+      accentColor: this.gup.accentColor,
+      subPitch: this.subPitch,
+      currentSpeed: this.currentSpeed,
+      isBoosting: this.boostTimer > 0,
+      boostTimer: this.boostTimer,
+      shieldEnergy: this.shieldEnergy,
+      maxShield: this.maxShield,
+      companionAvatar: this.mission.companionAvatar,
+      scale: 1.15,
+      isDocked: false,
+      time: performance.now()
+    });
     this.ctx.restore();
 
     // 11. Sonar Pulse Effect
