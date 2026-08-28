@@ -1,2 +1,6 @@
 .canonical-tmp/
+.canonical-base/
 workspace/node_modules/
+workspace/dist/
+node_modules/
+dist/

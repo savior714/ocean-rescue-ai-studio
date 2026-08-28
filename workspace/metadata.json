@@ -1,0 +1,6 @@
+{
+  "name": "Ocean Rescue",
+  "description": "An interactive underwater ocean rescue adventure game with submarine navigation and animal rescue missions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

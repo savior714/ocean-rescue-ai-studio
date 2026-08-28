@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Disposable Google AI Studio handoff shell for AidenGame Ocean Rescue.",
   "scripts": {
-    "dev": "node bootstrap.mjs"
+    "dev": "node bootstrap.mjs",
+    "build": "node build.mjs",
+    "lint": "node -e \"process.exit(0)\""
   },
   "engines": {
     "node": ">=20"

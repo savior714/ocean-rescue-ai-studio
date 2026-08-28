@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+  <title>Ocean Rescue — AidenGame</title>
+  <!-- OCEAN_RESCUE_CSS -->
+</head>
+<body>
+  <main
+    id="ocean-rescue-root"
+    aria-labelledby="ocean-rescue-title"
+    data-ocean-rescue-ready="false"
+  >
+    <a href="../index.html" class="home-link" aria-label="메인 홈으로 이동" style="position: absolute; top: 14px; right: 14px; z-index: 9999; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255,255,255,0.9); color: #1f2937; border-radius: 999px; text-decoration: none; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.15);"><span>홈으로</span></a>
+    <h1 id="ocean-rescue-title">Ocean Rescue</h1>
+
+    <p
+      id="ocean-rescue-status"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></p>
+
+    <section
+      id="ocean-rescue-admission-gate"
+      class="ocean-rescue-admission-gate"
+      aria-labelledby="ocean-rescue-gate-title"
+      hidden
+    >
+      <div class="ocean-rescue-gate-card">
+        <div class="ocean-rescue-gate-icon" aria-hidden="true">🔒</div>
+        <h2 id="ocean-rescue-gate-title">오늘의 목표를 완료하면 열려요!</h2>
+        <p>수학 놀이 등 오늘의 퀴즈 목표를 완료하고<br>자유시간 보상을 받아 바다 구조대를 시작해보세요.</p>
+        <a href="../index.html" class="ocean-rescue-gate-home-btn">홈으로 돌아가기</a>
+      </div>
+    </section>
+
+    <section
+      id="ocean-rescue-profile-choice"
+      aria-labelledby="ocean-rescue-profile-choice-title"
+      data-selection-step="profile"
+      style="display:none"
+    >
+      <div
+        class="ocean-rescue-selection-step"
+        aria-hidden="true"
+      >
+        <span class="ocean-rescue-selection-step-number">1</span>
+        <span class="ocean-rescue-selection-step-glyph">★</span>
+        <span class="ocean-rescue-selection-step-label">CREW</span>
+      </div>
+
+      <h2 id="ocean-rescue-profile-choice-title">Choose your Octonaut</h2>
+
+      <p
+        id="ocean-rescue-profile-player-name"
+      ></p>
+
+      <div
+        id="ocean-rescue-profile-animal-list"
+        aria-label="Animal choices"
+      ></div>
+
+      <button
+        id="ocean-rescue-profile-continue"
+        type="button"
+      >
+        Continue
+      </button>
+    </section>
+
+    <section
+      id="ocean-rescue-mission-select"
+      aria-labelledby="ocean-rescue-mission-select-title"
+      data-selection-step="mission"
+    >
+      <div
+        class="ocean-rescue-selection-step"
+        aria-hidden="true"
+      >
+        <span class="ocean-rescue-selection-step-number">2</span>
+        <span class="ocean-rescue-selection-step-glyph">⚑</span>
+        <span class="ocean-rescue-selection-step-label">MISSION</span>
+      </div>
+
+      <h2 id="ocean-rescue-mission-select-title">Choose a Mission</h2>
+      <p>Pick a rescue mission for Aiden.</p>
+      <div
+        id="ocean-rescue-mission-list"
+        aria-label="Rescue missions"
+      ></div>
+    </section>
+
+    <section
+      id="ocean-rescue-gup-select"
+      aria-labelledby="ocean-rescue-gup-select-title"
+      data-selection-step="gup"
+      hidden
+    >
+      <div
+        class="ocean-rescue-selection-step"
+        aria-hidden="true"
+      >
+        <span class="ocean-rescue-selection-step-number">3</span>
+        <span class="ocean-rescue-selection-step-glyph">▲</span>
+        <span class="ocean-rescue-selection-step-label">GUP</span>
+      </div>
+
+      <h2 id="ocean-rescue-gup-select-title">Choose a GUP</h2>
+
+      <p id="ocean-rescue-gup-mission"></p>
+
+      <p>
+        All GUPs complete every mission the same way.
+      </p>
+
+      <div
+        id="ocean-rescue-gup-list"
+        aria-label="GUP choices"
+      ></div>
+
+      <div id="ocean-rescue-gup-actions">
+        <button
+          id="ocean-rescue-gup-back"
+          type="button"
+        >
+          Back
+        </button>
+
+        <button
+          id="ocean-rescue-gup-launch"
+          type="button"
+        >
+          Launch
+        </button>
+      </div>
+    </section>
+
+    <section
+      id="ocean-rescue-launch"
+      aria-labelledby="ocean-rescue-launch-title"
+      hidden
+    >
+      <h2 id="ocean-rescue-launch-title">Launching!</h2>
+
+      <div
+        id="ocean-rescue-launch-visual"
+        aria-hidden="true"
+      >
+        <div class="ocean-rescue-launch-door ocean-rescue-launch-door-left"></div>
+        <div class="ocean-rescue-launch-door ocean-rescue-launch-door-right"></div>
+
+        <div id="ocean-rescue-launch-gup">
+          <span id="ocean-rescue-launch-gup-name"></span>
+        </div>
+      </div>
+
+      <p id="ocean-rescue-launch-companion"></p>
+      <p id="ocean-rescue-launch-briefing"></p>
+      <p>Tap anywhere to skip.</p>
+
+      <button
+        id="ocean-rescue-launch-skip"
+        type="button"
+      >
+        Skip
+      </button>
+    </section>
+
+    <div
+      id="ocean-rescue-goal-banner"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      hidden
+    ></div>
+
+    <section
+      id="ocean-rescue-stage"
+      aria-label="Ocean Rescue game stage"
+      hidden
+    >
+      <p id="ocean-rescue-travel-help">
+        Avoid the obstacles! Drag up or down, or tap where you want the GUP to go.
+      </p>
+      <canvas
+        id="ocean-rescue-canvas"
+        width="1280"
+        height="720"
+        aria-label="Ocean Rescue game scene"
+        aria-describedby="ocean-rescue-travel-help"
+      >
+        Ocean Rescue requires canvas support.
+      </canvas>
+
+      <div
+        id="ocean-rescue-travel-progress"
+        role="group"
+        aria-label="Distance to rescue site"
+        hidden
+      >
+        <span
+          id="ocean-rescue-travel-progress-label"
+          class="ocean-rescue-travel-progress-label"
+          aria-hidden="true"
+        >Rescue progress</span>
+
+        <div class="ocean-rescue-travel-progress-meter">
+          <span
+            id="ocean-rescue-travel-progress-start"
+            aria-hidden="true"
+          ></span>
+
+          <progress
+            id="ocean-rescue-travel-progress-bar"
+            max="100"
+            value="0"
+            aria-label="Travel progress"
+          ></progress>
+
+          <span
+            id="ocean-rescue-travel-progress-end"
+            aria-hidden="true"
+          ></span>
+
+          <span
+            id="ocean-rescue-travel-progress-value"
+            aria-hidden="true"
+          >0%</span>
+        </div>
+      </div>
+
+      <button
+        id="ocean-rescue-travel-action-btn"
+        type="button"
+        class="ocean-rescue-travel-action-btn"
+        hidden
+        aria-hidden="true"
+      ></button>
+
+      <section
+        id="ocean-rescue-rescue-overlay"
+        aria-labelledby="ocean-rescue-rescue-title"
+        hidden
+      >
+        <h2 id="ocean-rescue-rescue-title">Rescue Site</h2>
+
+        <p id="ocean-rescue-rescue-companion"></p>
+        <p id="ocean-rescue-rescue-situation"></p>
+
+        <div
+          id="ocean-rescue-rescue-ready"
+          role="status"
+          aria-live="polite"
+          hidden
+        >
+          Ready!
+        </div>
+
+        <div
+          id="ocean-rescue-rescue-tutorial"
+          hidden
+        >
+          <p id="ocean-rescue-rescue-instruction"></p>
+
+          <div
+            id="ocean-rescue-rescue-hand"
+            aria-hidden="true"
+          ></div>
+
+          <p>Tap anywhere to skip.</p>
+        </div>
+
+        <p
+          id="ocean-rescue-rescue-progress"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+
+        <div
+          id="ocean-rescue-rescue-assist-hand"
+          aria-hidden="true"
+          hidden
+        ></div>
+      </section>
+    </section>
+
+    <section
+      id="ocean-rescue-mission-success"
+      aria-labelledby="ocean-rescue-mission-success-title"
+      hidden
+    >
+      <h2 id="ocean-rescue-mission-success-title">Mission Complete!</h2>
+
+      <div
+        id="ocean-rescue-mission-success-visual"
+        aria-hidden="true"
+      >
+        <div id="ocean-rescue-mission-success-animal"></div>
+        <div id="ocean-rescue-mission-success-secondary-animal"></div>
+        <div id="ocean-rescue-mission-success-destination"></div>
+      </div>
+
+      <p
+        id="ocean-rescue-mission-success-ecology"
+        hidden
+      ></p>
+
+      <div
+        id="ocean-rescue-mission-success-narration"
+        hidden
+      >
+        <p id="ocean-rescue-mission-success-speaker"></p>
+
+        <p
+          id="ocean-rescue-mission-success-line"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+      </div>
+
+      <p
+        id="ocean-rescue-mission-success-tap-help"
+        hidden
+      >
+        Tap to continue.
+      </p>
+
+      <div
+        id="ocean-rescue-mission-complete-card"
+        hidden
+      >
+        <p id="ocean-rescue-mission-complete-name"></p>
+        <p id="ocean-rescue-mission-complete-ecology"></p>
+
+        <div
+          id="ocean-rescue-mission-complete-unlock"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        >
+          <p>Next Mission Unlocked!</p>
+          <p id="ocean-rescue-mission-complete-unlock-name"></p>
+        </div>
+
+        <div id="ocean-rescue-mission-complete-actions">
+          <button
+            id="ocean-rescue-mission-complete-continue"
+            type="button"
+          >
+            Continue
+          </button>
+
+          <button
+            id="ocean-rescue-mission-complete-replay"
+            type="button"
+          >
+            Replay
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <button
+      id="ocean-rescue-pause-button"
+      type="button"
+      aria-label="Pause game"
+      hidden
+    >
+      ⏸
+    </button>
+
+    <div
+      id="ocean-rescue-pause-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="ocean-rescue-pause-title"
+      hidden
+    >
+      <div id="ocean-rescue-pause-menu">
+        <h2 id="ocean-rescue-pause-title">Game Paused</h2>
+        <div id="ocean-rescue-pause-volume-controls">
+          <div class="ocean-rescue-volume-row">
+            <label for="ocean-rescue-volume-sound">Sound</label>
+            <input
+              id="ocean-rescue-volume-sound"
+              type="range"
+              min="0"
+              max="100"
+              value="70"
+              aria-label="Sound volume"
+            >
+            <span id="ocean-rescue-volume-sound-val">70</span>
+          </div>
+          <div class="ocean-rescue-volume-row">
+            <label for="ocean-rescue-volume-voice">Voice</label>
+            <input
+              id="ocean-rescue-volume-voice"
+              type="range"
+              min="0"
+              max="100"
+              value="85"
+              aria-label="Voice volume"
+            >
+            <span id="ocean-rescue-volume-voice-val">85</span>
+          </div>
+        </div>
+        <button
+          id="ocean-rescue-pause-resume"
+          type="button"
+        >
+          Resume
+        </button>
+        <div
+          id="ocean-rescue-pause-countdown"
+          hidden
+          role="status"
+          aria-live="assertive"
+          aria-atomic="true"
+        ></div>
+        <button
+          id="ocean-rescue-pause-menu-button"
+          type="button"
+        >
+          Back to Missions
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- OCEAN_RESCUE_SCRIPTS -->
+</body>
+</html>
