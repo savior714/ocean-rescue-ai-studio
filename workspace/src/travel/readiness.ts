@@ -7,7 +7,7 @@
  * semantic thresholds:
  * - Searchlight milestone: 0.33
  * - Thruster milestone: 0.66
- * - Cutter / Scanner milestone: 0.90
+ * - Cutter / Tool milestone: 0.90
  *
  * Clean piloting, staying in current streams, boosting, and precision navigation
  * contribute to readiness progress. Collisions penalize only uncommitted progress
@@ -19,6 +19,7 @@ export interface ReadinessSnapshot {
   readonly thruster: boolean;
   readonly cutter: boolean;
   readonly continuousValue: number;
+  readonly committedFloor: number;
 }
 
 interface MutableReadinessState {
@@ -29,9 +30,9 @@ interface MutableReadinessState {
   cutter: boolean;
 }
 
-const SEARCHLIGHT_THRESHOLD = 0.33;
-const THRUSTER_THRESHOLD = 0.66;
-const CUTTER_THRESHOLD = 0.90;
+export const SEARCHLIGHT_THRESHOLD = 0.33;
+export const THRUSTER_THRESHOLD = 0.66;
+export const CUTTER_THRESHOLD = 0.90;
 
 const state: MutableReadinessState = {
   continuousValue: 0,
@@ -71,6 +72,7 @@ function getSnapshot(): ReadinessSnapshot {
     thruster: state.thruster,
     cutter: state.cutter,
     continuousValue: state.continuousValue,
+    committedFloor: state.committedFloor,
   });
 }
 
@@ -92,15 +94,20 @@ function addProgress(amount: number): boolean {
   return checkMilestones();
 }
 
+/**
+ * Meaningful input progression step:
+ * Baseline passive gain is 0 (no unearned progress).
+ * Progress is only gained when actively piloting or surfing current streams.
+ */
 function step(deltaMs: number, isPiloting: boolean, inCurrent: boolean): boolean {
   if (deltaMs <= 0) return false;
   const sec = deltaMs / 1000;
-  let gained = 0.008 * sec;
+  let gained = 0;
   if (isPiloting) {
-    gained += 0.012 * sec;
+    gained += 0.04 * sec;
   }
   if (inCurrent) {
-    gained += 0.04 * sec;
+    gained += 0.08 * sec;
   }
   if (gained > 0) {
     state.continuousValue = Math.min(1.0, state.continuousValue + gained);
@@ -125,7 +132,7 @@ function onScan(): boolean {
 }
 
 function onCollision(): boolean {
-  const penalty = 0.15;
+  const penalty = 0.12;
   state.continuousValue = Math.max(state.committedFloor, state.continuousValue - penalty);
   return false;
 }
@@ -186,3 +193,8 @@ export const RescueReadiness: ReadinessApi = freeze({
   advanceThruster,
   advanceCutter,
 });
+
+const win = typeof window !== "undefined" ? (window as unknown as { OceanRescue?: { RescueReadiness?: ReadinessApi } }) : {};
+if (win && win.OceanRescue) {
+  win.OceanRescue.RescueReadiness = RescueReadiness;
+}

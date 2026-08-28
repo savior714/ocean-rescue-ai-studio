@@ -4,542 +4,273 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Ocean Rescue — 옥토 바다 구조대</title>
-  <link rel="stylesheet" href="/src/style.css">
+  <meta name="description" content="옥토 탐험선을 조종하여 위기에 처한 해양 동물을 구출하고 바다 생태계를 복원하는 하이퀄리티 인터랙티브 구조 게임">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Clean, high contrast responsive UI styling */
-    .ocean-rescue-mission-card, .ocean-rescue-gup-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 8px;
-      padding: 18px 20px;
-      background: rgba(14, 38, 66, 0.92);
-      border: 2px solid rgba(77, 208, 225, 0.4);
-      border-radius: 16px;
-      color: #eef5fb;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-      position: relative;
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #030d1a;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 0;
       overflow: hidden;
+      width: 100vw;
+      height: 100vh;
     }
-    .ocean-rescue-mission-card:hover, .ocean-rescue-gup-card:hover,
-    .ocean-rescue-gup-card[aria-pressed="true"] {
-      border-color: #ffd54f;
-      transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 8px 24px rgba(255, 213, 79, 0.3);
-      background: rgba(22, 58, 100, 0.98);
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
     }
-    .ocean-rescue-mission-avatar, .ocean-rescue-gup-icon {
-      font-size: 42px;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
-    }
-    .ocean-rescue-mission-title, .ocean-rescue-gup-name {
-      font-size: 18px;
-      font-weight: 700;
-      color: #fff;
-    }
-    .ocean-rescue-mission-companion {
-      font-size: 14px;
-      color: #80deea;
-      font-weight: 600;
-    }
-    .ocean-rescue-mission-summary, .ocean-rescue-gup-description {
-      font-size: 13px;
-      color: #cfd8dc;
-      line-height: 1.45;
-    }
-    .ocean-rescue-mission-status {
-      margin-top: 4px;
-      padding: 4px 12px;
-      background: rgba(76, 175, 80, 0.25);
-      border: 1px solid #4caf50;
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
       border-radius: 999px;
-      color: #a5d6a7;
-      font-size: 12px;
-      font-weight: 700;
     }
-    .ocean-rescue-gup-spec {
-      display: flex;
-      gap: 10px;
-      font-size: 11px;
-      color: #ffd54f;
-      margin-top: 4px;
-      background: rgba(0,0,0,0.3);
-      padding: 4px 8px;
-      border-radius: 8px;
-    }
-    #ocean-rescue-mission-list, #ocean-rescue-gup-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
-      width: 100%;
-      max-width: 940px;
-      margin: 16px auto;
-    }
-    #ocean-rescue-gup-actions {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      margin-top: 20px;
-    }
-    #ocean-rescue-gup-back, #ocean-rescue-gup-launch,
-    #ocean-rescue-mission-complete-continue, #ocean-rescue-mission-complete-replay,
-    #ocean-rescue-pause-resume, #ocean-rescue-pause-menu-button,
-    #ocean-rescue-logbook-close, #ocean-rescue-hangar-close, #ocean-rescue-quiz-close {
-      padding: 12px 28px;
-      font-size: 16px;
-      font-weight: 700;
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.4);
       border-radius: 999px;
-      cursor: pointer;
-      transition: transform 0.15s ease;
-      border: none;
     }
-    #ocean-rescue-gup-launch, #ocean-rescue-mission-complete-continue, #ocean-rescue-pause-resume {
-      background: linear-gradient(135deg, #ffca28, #ff9800);
-      color: #051829;
-      box-shadow: 0 4px 14px rgba(255, 152, 0, 0.4);
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(56, 189, 248, 0.7);
     }
-    #ocean-rescue-gup-back, #ocean-rescue-mission-complete-replay, #ocean-rescue-pause-menu-button,
-    #ocean-rescue-logbook-close, #ocean-rescue-hangar-close, #ocean-rescue-quiz-close {
-      background: rgba(255, 255, 255, 0.15);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.3);
+    @keyframes pulse-glow {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.4)); }
+      50% { transform: scale(1.04); filter: drop-shadow(0 0 24px rgba(251, 191, 36, 0.8)); }
     }
-    #ocean-rescue-logbook-close:hover, #ocean-rescue-hangar-close:hover, #ocean-rescue-quiz-close:hover {
-      background: rgba(255, 255, 255, 0.28);
-      border-color: #ffd54f;
-      transform: scale(1.05);
-    }
-    #ocean-rescue-logbook-close:active, #ocean-rescue-hangar-close:active, #ocean-rescue-quiz-close:active {
-      transform: scale(0.96);
-    }
-    #ocean-rescue-gup-launch:hover, #ocean-rescue-gup-back:hover {
-      transform: scale(1.05);
-    }
-
-    /* Top Bar Controls */
-    #ocean-rescue-topbar {
-      position: absolute;
-      top: 14px;
-      left: 20px;
-      right: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 50;
-      pointer-events: auto;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .ocean-rescue-topbar-stats {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(8, 24, 44, 0.85);
-      padding: 6px 14px;
-      border-radius: 20px;
-      border: 1px solid rgba(77, 208, 225, 0.4);
-      font-size: 13px;
-      font-weight: 700;
-      color: #e0f7fa;
-    }
-    .ocean-rescue-topbar-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .ocean-rescue-icon-btn {
-      background: rgba(8, 24, 44, 0.85);
-      border: 1px solid rgba(77, 208, 225, 0.5);
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 16px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .ocean-rescue-icon-btn:hover {
-      background: rgba(22, 58, 100, 0.95);
-      border-color: #ffd54f;
-      transform: scale(1.05);
-    }
-
-    /* Modals Backdrop */
-    .ocean-rescue-modal-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(3, 12, 24, 0.92);
-      backdrop-filter: blur(8px);
-      z-index: 100;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .ocean-rescue-modal-backdrop[hidden],
-    [hidden] {
-      display: none !important;
-    }
-    .ocean-rescue-modal-card {
-      background: rgba(14, 38, 66, 0.96);
-      border: 2px solid rgba(77, 208, 225, 0.6);
-      border-radius: 20px;
-      width: 100%;
-      max-width: 860px;
-      max-height: 88vh;
-      overflow-y: auto;
-      padding: 24px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-    }
-    .ocean-rescue-logbook-grid, .ocean-rescue-upgrade-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      margin: 16px 0;
-    }
-    .ocean-rescue-logbook-card, .ocean-rescue-upgrade-card {
-      background: rgba(8, 24, 44, 0.85);
-      border: 1px solid rgba(77, 208, 225, 0.4);
-      border-radius: 14px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .ocean-rescue-badge-tag {
-      background: linear-gradient(135deg, #ffd54f, #ff9800);
-      color: #051829;
-      font-size: 11px;
-      font-weight: 800;
-      padding: 3px 8px;
-      border-radius: 6px;
-      display: inline-block;
-      margin-top: 4px;
-    }
-
-    /* Upgrade Bars */
-    .ocean-rescue-upgrade-dots {
-      display: flex;
-      gap: 6px;
-      margin: 8px 0;
-    }
-    .ocean-rescue-upgrade-dot {
-      flex: 1;
-      height: 10px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 4px;
-      border: 1px solid rgba(77,208,225,0.3);
-    }
-    .ocean-rescue-upgrade-dot.active {
-      background: #00e5ff;
-      box-shadow: 0 0 8px #00e5ff;
-    }
-    .ocean-rescue-upgrade-btn {
-      background: linear-gradient(135deg, #00e5ff, #00b0ff);
-      color: #051829;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 999px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.15s ease;
-    }
-    .ocean-rescue-upgrade-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-    .ocean-rescue-upgrade-btn:hover:not(:disabled) {
-      transform: scale(1.04);
-    }
-
-    /* Quiz Option Buttons */
-    .ocean-rescue-quiz-opt {
-      background: rgba(14, 38, 66, 0.9);
-      border: 2px solid rgba(77, 208, 225, 0.4);
-      color: #fff;
-      padding: 14px 18px;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: left;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .ocean-rescue-quiz-opt:hover {
-      background: rgba(22, 58, 100, 0.98);
-      border-color: #ffd54f;
-      transform: translateY(-2px);
-    }
-    .ocean-rescue-quiz-opt.correct {
-      background: rgba(46, 125, 50, 0.85) !important;
-      border-color: #69f0ae !important;
-      color: #ffffff !important;
-    }
-    .ocean-rescue-quiz-opt.wrong {
-      background: rgba(198, 40, 40, 0.85) !important;
-      border-color: #ff8a80 !important;
-      color: #ffffff !important;
+    .animate-glow {
+      animation: pulse-glow 2.5s infinite ease-in-out;
     }
   </style>
 </head>
-<body>
-  <main id="ocean-rescue-root" aria-labelledby="ocean-rescue-title" data-ocean-rescue-ready="false">
-    <h1 id="ocean-rescue-title" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">Ocean Rescue</h1>
+<body class="flex flex-col items-center justify-center relative bg-slate-950">
 
-    <p id="ocean-rescue-status" role="status" aria-live="polite" aria-atomic="true"></p>
+  <!-- Fullscreen 2D Interactive Canvas Layer -->
+  <div id="canvas-wrapper" class="absolute inset-0 w-full h-full flex items-center justify-center pointer-events-auto z-0">
+    <canvas id="ocean-rescue-canvas" class="w-full h-full object-contain max-w-[1920px] max-h-[1080px]"></canvas>
+  </div>
 
-    <!-- Top Quick Bar -->
-    <header id="ocean-rescue-topbar">
-      <div class="ocean-rescue-topbar-stats">
-        <span>⭐ <span id="ocean-rescue-stat-stars">0</span></span>
-        <span>🎖️ <span id="ocean-rescue-stat-badges">0 / 5</span> 훈장</span>
+  <!-- Top Navigation & Stats Bar -->
+  <header class="absolute top-3 left-4 right-4 z-40 flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-cyan-500/30 shadow-2xl pointer-events-auto">
+    <!-- Live Stats Group -->
+    <div class="flex items-center gap-5 text-xs sm:text-sm font-bold text-slate-200">
+      <div class="flex items-center gap-1.5">
+        <span class="text-cyan-400">🌊 생태 복원도:</span>
+        <span id="ocean-rescue-stat-resto" class="text-emerald-400 font-extrabold text-sm sm:text-base">0%</span>
       </div>
-      <div class="ocean-rescue-topbar-actions">
-        <button id="ocean-rescue-btn-hangar" class="ocean-rescue-icon-btn" type="button" title="탐험선 격납고 & 업그레이드">🔧 탐험선 격납고</button>
-        <button id="ocean-rescue-btn-quiz" class="ocean-rescue-icon-btn" type="button" title="해양 생태 퀴즈 챌린지">🧠 생태 퀴즈</button>
-        <button id="ocean-rescue-btn-logbook" class="ocean-rescue-icon-btn" type="button" title="생태 도감 & 훈장 보관함">📖 생태 도감</button>
-        <button id="ocean-rescue-btn-bgm" class="ocean-rescue-icon-btn" type="button" title="배경음 On/Off">🎵 BGM</button>
-        <button id="ocean-rescue-btn-mute" class="ocean-rescue-icon-btn" type="button" title="전체 음소거">🔊 사운드</button>
+      <div class="flex items-center gap-1.5">
+        <span class="text-amber-400">별빛 크리스탈:</span>
+        <span id="ocean-rescue-stat-stars" class="text-amber-300 font-extrabold text-sm sm:text-base">120 ⭐️</span>
       </div>
-    </header>
-
-    <!-- Mission Select -->
-    <section id="ocean-rescue-mission-select" aria-labelledby="ocean-rescue-mission-select-title">
-      <div class="ocean-rescue-selection-step" aria-hidden="true">
-        <span class="ocean-rescue-selection-step-number">1</span>
-        <span class="ocean-rescue-selection-step-glyph">⚑</span>
-        <span class="ocean-rescue-selection-step-label">MISSION SELECT</span>
-      </div>
-      <h2 id="ocean-rescue-mission-select-title" style="font-size: 26px; text-align: center; margin: 10px 0 4px 0;">바다 구조대 출동 미션</h2>
-      <p style="text-align: center; color: #80deea; margin-bottom: 16px;">도움이 필요한 5대양 해양 생물을 구출해주세요!</p>
-      <div id="ocean-rescue-mission-list" aria-label="Rescue missions"></div>
-    </section>
-
-    <!-- Gup Select -->
-    <section id="ocean-rescue-gup-select" aria-labelledby="ocean-rescue-gup-select-title" hidden>
-      <div class="ocean-rescue-selection-step" aria-hidden="true">
-        <span class="ocean-rescue-selection-step-number">2</span>
-        <span class="ocean-rescue-selection-step-glyph">▲</span>
-        <span class="ocean-rescue-selection-step-label">GUP SELECT</span>
-      </div>
-      <h2 id="ocean-rescue-gup-select-title" style="font-size: 24px; text-align: center; margin: 10px 0 4px 0;">옥토 탐험선(GUP) 선택</h2>
-      <p id="ocean-rescue-gup-mission" style="text-align: center; color: #ffd54f; font-weight: 700;"></p>
-      <div id="ocean-rescue-gup-list" aria-label="GUP choices"></div>
-      <div id="ocean-rescue-gup-actions">
-        <button id="ocean-rescue-gup-back" type="button">뒤로 가기</button>
-        <button id="ocean-rescue-gup-launch" type="button">탐험선 출동!</button>
-      </div>
-    </section>
-
-    <!-- Launch Bay Scene -->
-    <section id="ocean-rescue-launch" aria-labelledby="ocean-rescue-launch-title" hidden>
-      <h2 id="ocean-rescue-launch-title">출동 준비! (Launching)</h2>
-      <div id="ocean-rescue-launch-visual" aria-hidden="true">
-        <div class="ocean-rescue-launch-door ocean-rescue-launch-door-left"></div>
-        <div class="ocean-rescue-launch-door ocean-rescue-launch-door-right"></div>
-        <div id="ocean-rescue-launch-gup">
-          <span id="ocean-rescue-launch-gup-name"></span>
-        </div>
-      </div>
-      <p id="ocean-rescue-launch-companion" style="color: #ffd54f; font-weight: 700;"></p>
-      <p id="ocean-rescue-launch-briefing" style="font-size: 16px; max-width: 600px; line-height: 1.5;"></p>
-      <p style="font-size: 13px; color: #80deea;">화면을 터치하면 바로 이동합니다.</p>
-      <button id="ocean-rescue-launch-skip" type="button">건너뛰기 (Skip)</button>
-    </section>
-
-    <!-- Game Stage (Travel & Rescue minigames) -->
-    <section id="ocean-rescue-stage" aria-label="Ocean Rescue game stage" hidden>
-      <p id="ocean-rescue-travel-help">장애물을 피하세요! 꾹 누르면 그 방향으로 계속 이동합니다.</p>
-
-      <canvas id="ocean-rescue-canvas" width="1280" height="720" aria-label="Ocean Rescue game scene">
-        Canvas not supported.
-      </canvas>
-
-      <div id="ocean-rescue-travel-progress" role="group" aria-label="Distance to rescue site" hidden>
-        <span id="ocean-rescue-travel-progress-label" class="ocean-rescue-travel-progress-label" aria-hidden="true">구조 지점까지 거리</span>
-        <div class="ocean-rescue-travel-progress-meter">
-          <progress id="ocean-rescue-travel-progress-bar" max="100" value="0" aria-label="Travel progress"></progress>
-          <span id="ocean-rescue-travel-progress-value" aria-hidden="true">0%</span>
-        </div>
-      </div>
-
-      <!-- Rescue Overlay info -->
-      <section id="ocean-rescue-rescue-overlay" aria-labelledby="ocean-rescue-rescue-title" hidden>
-        <h2 id="ocean-rescue-rescue-title" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">Rescue Site</h2>
-        <p id="ocean-rescue-rescue-companion" style="color: #ffd54f; font-weight: 700; font-size: 17px;"></p>
-        <p id="ocean-rescue-rescue-situation" style="font-size: 15px; color: #fff;"></p>
-        <div id="ocean-rescue-rescue-ready" role="status" aria-live="polite" hidden>Ready!</div>
-        <div id="ocean-rescue-rescue-tutorial" hidden>
-          <p id="ocean-rescue-rescue-instruction" style="font-size: 15px; color: #80deea;"></p>
-        </div>
-        <p id="ocean-rescue-rescue-progress" role="status" aria-live="polite" aria-atomic="true" style="font-size: 15px; font-weight: 600; color: #ffeb3b;"></p>
-      </section>
-    </section>
-
-    <!-- Mission Success Screen -->
-    <section id="ocean-rescue-mission-success" aria-labelledby="ocean-rescue-mission-success-title" hidden>
-      <h2 id="ocean-rescue-mission-success-title" style="font-size: 32px; color: #ffd54f; text-shadow: 0 4px 16px rgba(255,213,79,0.5);">🎉 구조 대성공! (Mission Complete!)</h2>
-      
-      <!-- 3-Star Rating -->
-      <div id="ocean-rescue-mission-stars" style="font-size: 36px; margin: 6px 0; letter-spacing: 6px;">⭐⭐⭐</div>
-
-      <div id="ocean-rescue-mission-success-visual" aria-hidden="true">
-        <div id="ocean-rescue-mission-success-animal" style="font-size: 72px; animation: bounce 1s infinite alternate;">🐢</div>
-        <div id="ocean-rescue-mission-success-destination" style="font-size: 22px; font-weight: 700; color: #80deea; margin-top: 8px;"></div>
-      </div>
-
-      <!-- Awarded Octo Badge -->
-      <div id="ocean-rescue-awarded-badge" style="background: rgba(255,213,79,0.2); border: 2px solid #ffd54f; border-radius: 12px; padding: 10px 20px; margin: 10px 0; display: inline-flex; align-items: center; gap: 8px;">
-        <span style="font-size: 24px;">🎖️</span>
-        <span id="ocean-rescue-badge-text" style="font-weight: 700; color: #ffd54f; font-size: 15px;"></span>
-      </div>
-
-      <p id="ocean-rescue-mission-success-ecology" style="max-width: 640px; line-height: 1.6; background: rgba(0,0,0,0.5); padding: 14px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); font-size: 14px; text-align: left;"></p>
-
-      <!-- Fun Trivia Box -->
-      <div id="ocean-rescue-fun-trivia-box" style="max-width: 640px; background: rgba(77,208,225,0.15); border: 1px solid rgba(77,208,225,0.4); border-radius: 12px; padding: 12px 18px; margin-top: 10px; font-size: 13px; color: #e0f7fa; text-align: left;">
-        <div style="font-weight: 700; color: #ffd54f; margin-bottom: 4px;">💡 탐험 보고서 상식 (Marine Facts)</div>
-        <ul id="ocean-rescue-trivia-list" style="margin: 0; padding-left: 18px; line-height: 1.5;"></ul>
-      </div>
-
-      <div id="ocean-rescue-mission-complete-card" style="margin-top: 16px;">
-        <div id="ocean-rescue-mission-complete-actions" style="display: flex; gap: 16px; justify-content: center; margin-top: 14px;">
-          <button id="ocean-rescue-mission-complete-continue" type="button">다음 미션으로</button>
-          <button id="ocean-rescue-mission-complete-replay" type="button">다시 플레이</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- GUP Hangar / Upgrade Workshop Modal -->
-    <div id="ocean-rescue-hangar-modal" class="ocean-rescue-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="ocean-rescue-hangar-title" hidden>
-      <div class="ocean-rescue-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 id="ocean-rescue-hangar-title" style="font-size: 24px; color: #ffd54f; margin: 0;">🔧 옥토 탐험선 격납고 & 업그레이드</h2>
-          <button id="ocean-rescue-hangar-close" type="button" style="padding: 6px 16px; font-size: 14px;">닫기 ✕</button>
-        </div>
-        <p style="color: #80deea; font-size: 14px; margin-top: 6px;">미션에서 모은 별(⭐)을 사용하여 트윅의 엔지니어링 랩에서 탐험선 성능을 업그레이드하세요!</p>
-        
-        <div class="ocean-rescue-upgrade-grid">
-          <!-- Speed Upgrade -->
-          <div class="ocean-rescue-upgrade-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 18px; font-weight: 700; color: #fff;">🚀 터보 추진 엔진</span>
-              <span style="color: #80deea; font-weight: 700;">Lv.<span id="ocean-rescue-upg-speed-lvl">0</span></span>
-            </div>
-            <p style="font-size: 13px; color: #cfd8dc;">항해 기본 속도 +10% 증가</p>
-            <div id="ocean-rescue-upg-speed-dots" class="ocean-rescue-upgrade-dots">
-              <div class="ocean-rescue-upgrade-dot"></div>
-              <div class="ocean-rescue-upgrade-dot"></div>
-              <div class="ocean-rescue-upgrade-dot"></div>
-            </div>
-            <button id="ocean-rescue-btn-upg-speed" class="ocean-rescue-upgrade-btn" type="button">강화 (⭐ 10개)</button>
-          </div>
-
-          <!-- Shield Upgrade -->
-          <div class="ocean-rescue-upgrade-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 18px; font-weight: 700; color: #fff;">🛡️ 에너지 방어막</span>
-              <span style="color: #80deea; font-weight: 700;">Lv.<span id="ocean-rescue-upg-shield-lvl">0</span></span>
-            </div>
-            <p style="font-size: 13px; color: #cfd8dc;">장애물 충돌 시 감속 없이 충격을 흡수</p>
-            <div id="ocean-rescue-upg-shield-dots" class="ocean-rescue-upgrade-dots">
-              <div class="ocean-rescue-upgrade-dot"></div>
-              <div class="ocean-rescue-upgrade-dot"></div>
-              <div class="ocean-rescue-upgrade-dot"></div>
-            </div>
-            <button id="ocean-rescue-btn-upg-shield" class="ocean-rescue-upgrade-btn" type="button">강화 (⭐ 15개)</button>
-          </div>
-
-          <!-- Sonar Upgrade -->
-          <div class="ocean-rescue-upgrade-card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 18px; font-weight: 700; color: #fff;">📡 장거리 초음파 소나</span>
-              <span style="color: #80deea; font-weight: 700;">Lv.<span id="ocean-rescue-upg-sonar-lvl">0</span></span>
-            </div>
-            <p style="font-size: 13px; color: #cfd8dc;">소나 탐색 반경 +25% 확장</p>
-            <div id="ocean-rescue-upg-sonar-dots" class="ocean-rescue-upgrade-dots">
-              <div class="ocean-rescue-upgrade-dot"></div>
-              <div class="ocean-rescue-upgrade-dot"></div>
-              <div class="ocean-rescue-upgrade-dot"></div>
-            </div>
-            <button id="ocean-rescue-btn-upg-sonar" class="ocean-rescue-upgrade-btn" type="button">강화 (⭐ 12개)</button>
-          </div>
-        </div>
+      <div class="hidden md:flex items-center gap-1.5">
+        <span class="text-indigo-400">🎖️ 옥토 훈장:</span>
+        <span id="ocean-rescue-stat-badges" class="text-indigo-300 font-extrabold">0 / 5</span>
       </div>
     </div>
 
-    <!-- Marine Ecology Quiz Modal -->
-    <div id="ocean-rescue-quiz-modal" class="ocean-rescue-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="ocean-rescue-quiz-title" hidden>
-      <div class="ocean-rescue-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 id="ocean-rescue-quiz-title" style="font-size: 24px; color: #ffd54f; margin: 0;">🧠 해양 생태 퀴즈 챌린지</h2>
-          <button id="ocean-rescue-quiz-close" type="button" style="padding: 6px 16px; font-size: 14px;">닫기 ✕</button>
-        </div>
-        <p style="color: #80deea; font-size: 14px; margin-top: 6px;">바다 생물들에 관한 흥미로운 퀴즈를 풀고 추가 별(⭐)과 퀴즈 박사 훈장을 획득하세요!</p>
+    <!-- Navigation Action Buttons -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <button id="btn-nav-missions" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
+        🚨 미션 목록
+      </button>
+      <button id="btn-nav-garage" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-950/80 hover:bg-amber-900 border border-amber-500/50 text-amber-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
+        🛠️ 탐험선 격납고
+      </button>
+      <button id="btn-nav-logbook" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/50 text-indigo-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
+        📖 생태 도감
+      </button>
+      <button id="btn-nav-quiz" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
+        🧠 생태 퀴즈
+      </button>
+      <button id="btn-toggle-bgm" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 transition-all hover:scale-105 active:scale-95 shadow-sm">
+        🎵 BGM 켜짐
+      </button>
+    </div>
+  </header>
 
-        <div id="ocean-rescue-quiz-body" style="margin-top: 16px;">
-          <div style="display: flex; justify-content: space-between; font-size: 13px; color: #ffd54f; font-weight: 700; margin-bottom: 8px;">
-            <span id="ocean-rescue-quiz-progress-text">문제 1 / 5</span>
-            <span id="ocean-rescue-quiz-category-tag" style="background: rgba(0,229,255,0.2); padding: 2px 8px; border-radius: 6px; color: #80deea;">바다거북</span>
-          </div>
-          <div id="ocean-rescue-quiz-question" style="font-size: 18px; font-weight: 700; color: #fff; line-height: 1.5; margin-bottom: 16px; background: rgba(0,0,0,0.3); padding: 14px; border-radius: 12px;"></div>
-          
-          <div id="ocean-rescue-quiz-options" style="display: grid; grid-template-columns: 1fr; gap: 10px;"></div>
+  <!-- ==================== VIEW 1: MISSION SELECT ==================== -->
+  <main id="view-mission-select" class="relative z-20 w-full max-w-6xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto animate-fade-in max-h-[85vh] overflow-y-auto custom-scrollbar mt-12">
+    <div class="text-center mb-6">
+      <div class="text-5xl sm:text-6xl mb-2 animate-glow">🐙 🚨 🌊</div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-cyan-300 to-amber-200 tracking-tight drop-shadow-md">
+        옥토 바다 구조대 : Ocean Rescue
+      </h1>
+      <p class="text-sm sm:text-base text-cyan-200/90 font-medium max-w-2xl mx-auto mt-2 leading-relaxed">
+        위기에 처한 해양 동물들의 조난 신호가 수신되었습니다! 미션을 선택하고 탐험선(GUP)을 조종하여 신속히 출동하세요.
+      </p>
+    </div>
 
-          <div id="ocean-rescue-quiz-explanation-box" style="margin-top: 14px; padding: 14px; border-radius: 12px; background: rgba(0,230,118,0.15); border: 1px solid #00e676; font-size: 14px; color: #e0f7fa; line-height: 1.5;" hidden>
-            <div id="ocean-rescue-quiz-result-title" style="font-weight: 700; font-size: 15px; margin-bottom: 4px;"></div>
-            <div id="ocean-rescue-quiz-explanation"></div>
-            <button id="ocean-rescue-quiz-next-btn" type="button" style="margin-top: 10px; background: #ffd54f; color: #051829; font-weight: 700; padding: 8px 20px; border-radius: 999px; border: none; cursor: pointer;">다음 문제 ➔</button>
-          </div>
-        </div>
+    <!-- Mission Cards Grid -->
+    <div id="mission-card-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full"></div>
+  </main>
+
+  <!-- ==================== VIEW 2: GUP SELECT ==================== -->
+  <main id="view-gup-select" class="hidden relative z-20 w-full max-w-5xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto max-h-[85vh] overflow-y-auto custom-scrollbar mt-12">
+    <div class="text-center mb-6">
+      <h2 id="gup-select-mission-title" class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-2">
+        🎯 출동 탐험선(GUP) 선택
+      </h2>
+      <p class="text-sm text-cyan-200 font-medium">
+        미션 환경과 구조 작업에 최적화된 옥토포드 탐험선을 선택해 탑승하세요.
+      </p>
+    </div>
+
+    <div id="gup-card-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 w-full mb-6"></div>
+  </main>
+
+  <!-- ==================== VIEW 3: GUP GARAGE & UPGRADES ==================== -->
+  <main id="view-gup-garage" class="hidden relative z-20 w-full max-w-5xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto max-h-[85vh] overflow-y-auto custom-scrollbar mt-12">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-2">🛠️ ⚡ 🚤</div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-2">
+        옥토포드 탐험선 격납고 & 강화소
+      </h2>
+      <p class="text-sm text-cyan-200 font-medium">
+        구조 미션과 퀴즈로 획득한 별빛 크리스탈(⭐️)로 탐험선의 속도, 실드, 소나를 강화하세요!
+      </p>
+    </div>
+
+    <div id="garage-gup-list" class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full"></div>
+  </main>
+
+  <!-- ==================== VIEW 4: LAUNCH CINEMATIC ==================== -->
+  <main id="view-launch" class="hidden relative z-20 w-full max-w-2xl px-6 py-10 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-cyan-500/80 rounded-3xl shadow-2xl backdrop-blur-xl text-center mt-8">
+    <div class="text-xs font-bold text-amber-400 bg-amber-950/80 px-4 py-1 rounded-full border border-amber-500/50 mb-4 animate-pulse">
+      🚨 옥토경보 발령 (OCTO-ALERT ACTIVATED) 🚨
+    </div>
+    
+    <div class="flex items-center gap-4 bg-slate-950/70 p-4 rounded-2xl border border-slate-800 mb-6 w-full max-w-md">
+      <div id="launch-companion-avatar" class="text-5xl p-2 bg-slate-800/80 rounded-xl">🐧</div>
+      <div class="text-left">
+        <h4 id="launch-companion-name" class="text-lg font-bold text-cyan-300">페소 (Peso)</h4>
+        <p class="text-xs text-slate-400 font-medium">작전 지원 통신관</p>
       </div>
     </div>
 
-    <!-- Logbook & Badges Modal -->
-    <div id="ocean-rescue-logbook-modal" class="ocean-rescue-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="ocean-rescue-logbook-title" hidden>
-      <div class="ocean-rescue-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h2 id="ocean-rescue-logbook-title" style="font-size: 24px; color: #ffd54f; margin: 0;">📖 옥토 생태 도감 & 훈장 보관함</h2>
-          <button id="ocean-rescue-logbook-close" type="button" style="padding: 6px 16px; font-size: 14px;">닫기 ✕</button>
-        </div>
-        <p style="color: #80deea; font-size: 14px; margin-top: 6px;">구조한 5대양 해양 생물들의 생태 정보와 수여받은 옥토 훈장을 확인하세요.</p>
-        <div id="ocean-rescue-logbook-list" class="ocean-rescue-logbook-grid"></div>
+    <p id="launch-briefing-text" class="text-base sm:text-lg text-slate-200 font-medium leading-relaxed mb-8 px-4">
+      산호초 지대에서 바다거북이가 폐그물에 엉켜 있습니다! 신속히 출동하세요!
+    </p>
+
+    <div class="text-center mb-6">
+      <div class="text-xs uppercase font-bold text-slate-400 mb-1">발진 카운트다운</div>
+      <div id="launch-countdown" class="text-6xl sm:text-7xl font-black text-amber-400 animate-bounce tracking-widest">
+        3
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================== VIEW 5: TRAVEL OVERLAY CONTROLS ==================== -->
+  <aside id="view-travel" class="hidden absolute bottom-6 right-6 z-30 flex flex-col items-end gap-3 pointer-events-auto">
+    <button id="btn-sonar-ping" class="px-5 py-3 rounded-2xl font-black bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/30 flex items-center gap-2 transition-all hover:scale-105 active:scale-95">
+      <span class="text-xl">📡</span>
+      <span>광역 소나 탐지 (SPACE)</span>
+    </button>
+    <div class="bg-slate-900/80 border border-slate-700/80 px-4 py-2 rounded-xl text-xs text-slate-300 backdrop-blur-sm">
+      조작: <strong>마우스/터치 드래그</strong> 또는 <strong>방향키 / WASD</strong>
+    </div>
+  </aside>
+
+  <!-- ==================== VIEW 6: RESCUE OVERLAY CONTROLS ==================== -->
+  <aside id="view-rescue" class="hidden absolute bottom-6 left-6 z-30 flex items-center gap-3 pointer-events-auto">
+    <div class="bg-slate-900/90 border border-cyan-500/50 px-5 py-3 rounded-2xl text-xs sm:text-sm text-cyan-200 backdrop-blur-md shadow-xl">
+      💡 <strong>구조 안내:</strong> 화면의 엉킨 장애물을 터치/드래그하여 제거한 후 바이탈 치료를 완료하세요!
+    </div>
+  </aside>
+
+  <!-- ==================== VIEW 7: MISSION SUCCESS ==================== -->
+  <main id="view-success" class="hidden relative z-20 w-full max-w-xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-amber-400/80 rounded-3xl shadow-2xl backdrop-blur-xl text-center mt-6">
+    <div class="text-6xl mb-2 animate-bounce">🎉 🏆 🌟</div>
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-1">구조 작전 성공!</h2>
+    <p class="text-xs text-emerald-400 font-bold mb-4">MISSION ACCOMPLISHED</p>
+
+    <div class="flex items-center justify-center gap-4 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 w-full mb-4">
+      <div id="success-animal-icon" class="text-5xl">🐢</div>
+      <div class="text-left">
+        <h4 id="success-animal-name" class="text-lg font-bold text-white">푸른바다거북</h4>
+        <div id="success-badge-name" class="text-xs text-amber-400 font-bold">🎖️ 산호초 거북 수호 훈장</div>
+      </div>
+      <div class="ml-auto text-right">
+        <div class="text-xs text-slate-400">보상 획득</div>
+        <div id="success-stars-earned" class="text-xl font-extrabold text-amber-300">+50 ⭐️</div>
       </div>
     </div>
 
-    <!-- Pause Button & Menu -->
-    <button id="ocean-rescue-pause-button" type="button" aria-label="Pause game" hidden>⏸</button>
-    <div id="ocean-rescue-pause-overlay" role="dialog" aria-modal="true" aria-labelledby="ocean-rescue-pause-title" hidden>
-      <div id="ocean-rescue-pause-menu">
-        <h2 id="ocean-rescue-pause-title">일시 정지 (Paused)</h2>
-        <div id="ocean-rescue-pause-volume-controls">
-          <div class="ocean-rescue-volume-row">
-            <label for="ocean-rescue-volume-sound">효과음 (Sound)</label>
-            <input id="ocean-rescue-volume-sound" type="range" min="0" max="100" value="75" aria-label="Sound volume">
-            <span id="ocean-rescue-volume-sound-val">75</span>
-          </div>
-          <div class="ocean-rescue-volume-row">
-            <label for="ocean-rescue-volume-voice">음성 안내 (Voice)</label>
-            <input id="ocean-rescue-volume-voice" type="range" min="0" max="100" value="85" aria-label="Voice volume">
-            <span id="ocean-rescue-volume-voice-val">85</span>
-          </div>
-        </div>
-        <button id="ocean-rescue-pause-resume" type="button">계속하기 (Resume)</button>
-        <div id="ocean-rescue-pause-countdown" hidden role="status" aria-live="assertive" aria-atomic="true"></div>
-        <button id="ocean-rescue-pause-menu-button" type="button">미션 선택으로 (Missions)</button>
+    <!-- Ecology Fact Card -->
+    <div class="bg-cyan-950/50 border border-cyan-800/60 p-4 rounded-2xl text-left mb-6 w-full">
+      <div class="text-xs font-bold text-cyan-300 mb-1 flex items-center gap-1.5">
+        <span>📖</span> <span>옥토 해양 생태 지식:</span>
+      </div>
+      <p id="success-ecology-fact" class="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+        바다거북은 아가미가 아닌 폐로 숨을 쉬기 때문에 20~30분마다 물 위로 올라와야 해요. 폐그물은 거북이에게 치명적인 위협이 됩니다.
+      </p>
+    </div>
+
+    <div class="flex items-center justify-center gap-3 w-full">
+      <button id="btn-success-quiz" class="flex-1 py-3 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white text-sm shadow-md transition-all">
+        🧠 생태 퀴즈 풀기 (+별 보상)
+      </button>
+      <button id="btn-success-continue" class="flex-1 py-3 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm shadow-lg shadow-amber-500/20 transition-all">
+        📋 다음 미션으로
+      </button>
+    </div>
+  </main>
+
+  <!-- ==================== VIEW 8: ECO QUIZ CHALLENGE ==================== -->
+  <main id="view-quiz" class="hidden relative z-20 w-full max-w-xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-emerald-500/80 rounded-3xl shadow-2xl backdrop-blur-xl text-center mt-6">
+    <div class="flex items-center justify-between w-full mb-4">
+      <span id="quiz-step-index" class="text-xs font-bold px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
+        문제 1 / 6
+      </span>
+      <span class="text-xs text-amber-400 font-bold">정답 시 +20 ⭐️</span>
+    </div>
+
+    <div id="quiz-animal-icon" class="text-6xl mb-3">🐢</div>
+    <h3 id="quiz-question-text" class="text-base sm:text-lg font-bold text-white mb-6 leading-snug">
+      바다거북은 숨을 쉬기 위해 어디로 올라와야 할까요?
+    </h3>
+
+    <div id="quiz-options-container" class="space-y-2.5 w-full mb-4"></div>
+
+    <div id="quiz-explanation-box" class="hidden text-xs sm:text-sm text-cyan-200 bg-cyan-950/70 border border-cyan-800 p-3.5 rounded-xl text-left leading-relaxed w-full">
+      💡 해설: 바다거북은 아가미가 아닌 허파(폐)로 숨을 쉽니다.
+    </div>
+  </main>
+
+  <!-- ==================== VIEW 9: LOGBOOK & BADGES ==================== -->
+  <main id="view-logbook" class="hidden relative z-20 w-full max-w-4xl px-6 py-8 flex flex-col items-center justify-center pointer-events-auto bg-slate-900/95 border-2 border-indigo-500/80 rounded-3xl shadow-2xl backdrop-blur-xl max-h-[85vh] overflow-y-auto custom-scrollbar mt-8">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-2">📖 🎖️ 🌊</div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-300 mb-1">
+        옥토 생태 도감 & 명예 훈장
+      </h2>
+      <p class="text-xs sm:text-sm text-indigo-200 font-medium">
+        구조에 성공한 해양 동물들의 생태 기록과 수여받은 명예 훈장 목록입니다.
+      </p>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-2 gap-4 w-full max-w-md mb-6 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
+      <div>
+        <div class="text-xs text-slate-400 mb-1">총 구출한 해양 생물</div>
+        <div id="logbook-total-animals" class="text-2xl font-black text-cyan-300">0마리</div>
+      </div>
+      <div>
+        <div class="text-xs text-slate-400 mb-1">전 지구 해양 복원율</div>
+        <div id="logbook-restoration-text" class="text-2xl font-black text-emerald-400">0%</div>
       </div>
     </div>
+
+    <!-- Restoration Progress Bar -->
+    <div class="w-full max-w-md bg-slate-800 rounded-full h-3.5 mb-8 overflow-hidden p-0.5 border border-slate-700">
+      <div id="logbook-restoration-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+    </div>
+
+    <!-- Badge List Grid -->
+    <div id="logbook-badge-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full"></div>
   </main>
 
   <script type="module" src="/src/main.ts"></script>

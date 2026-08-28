@@ -1,16 +1,15 @@
 /**
- * Typed canonical travel runtime contract for Ocean Rescue (WP-31C / Travel).
+ * Typed canonical travel runtime contract for Ocean Rescue.
  *
  * This module is the strictly typed canonical implementation of the travel
  * runtime. It owns authoritative forward progression (distance) and 2D GUP
  * position within child-friendly stage bounds.
  *
- * The observable runtime contract provides:
- * - 2D stage bounds (`minX`, `maxX`, `minY`, `maxY`, `startX`, `startY`)
- * - Authoritative distance accumulation based on `AutoForwardSpeed` and
- *   environmental/speed multipliers (0..3.5)
+ * Canonical Contract:
+ * - AutoForwardSpeed = 120
+ * - Speed multiplier range: 0..1 (boost mode scales dynamically)
+ * - TapSpeed = 360
  * - Direct finger/pointer tracking in both X and Y axes
- * - Deterministic snapshots consumed by rendering and controllers
  */
 
 import type { OceanRescueNamespace } from "../contracts/runtime-abi";
@@ -30,6 +29,7 @@ export interface TravelSnapshot {
   readonly x: number;
   readonly y: number;
   readonly tapTargetY: number | null;
+  readonly tapTargetX: number | null;
   readonly dragging: boolean;
   readonly pointerId: number | null;
 }
@@ -53,16 +53,16 @@ function freeze<T>(value: T): Readonly<T> {
 }
 
 export const Bounds: TravelBounds = freeze({
-  minY: 120,
-  maxY: 600,
+  minY: 100,
+  maxY: 620,
   startY: 360,
-  minX: 160,
-  maxX: 460,
+  minX: 120,
+  maxX: 1100,
   startX: 260,
 });
 
-const AutoForwardSpeed = 100;
-const TapSpeed = 450;
+const AutoForwardSpeed = 120;
+const TapSpeed = 360;
 
 interface MutableTravelState {
   active: boolean;
@@ -121,6 +121,7 @@ function getSnapshot(): TravelSnapshot {
     x: state.x,
     y: state.y,
     tapTargetY: state.tapTargetY,
+    tapTargetX: state.tapTargetX,
     dragging: state.dragging,
     pointerId: state.pointerId,
   });
@@ -166,10 +167,7 @@ function step(deltaMs: unknown, forwardSpeedMultiplier?: unknown): boolean {
     if (!isFiniteNumber(forwardSpeedMultiplier)) {
       return false;
     }
-    if (forwardSpeedMultiplier < 0 || forwardSpeedMultiplier > 3.5) {
-      return false;
-    }
-    multiplier = forwardSpeedMultiplier;
+    multiplier = Math.max(0, Math.min(1.0, forwardSpeedMultiplier));
   }
   let applied = deltaMs;
   if (applied > 50) {
@@ -322,10 +320,12 @@ const Travel: TravelApi = freeze({
   tapTo: tapTo,
 });
 
-const win = window as Window & { OceanRescue?: OceanRescueNamespace };
-const root = win.OceanRescue || {};
-win.OceanRescue = root;
-root.Travel = Travel;
+const win = typeof window !== "undefined" ? (window as unknown as { OceanRescue?: OceanRescueNamespace }) : null;
+if (win) {
+  const root = win.OceanRescue || {};
+  win.OceanRescue = root;
+  root.Travel = Travel;
+}
 
 export { Travel as OceanRescueTravel };
 export { Travel };

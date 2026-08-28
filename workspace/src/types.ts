@@ -3,21 +3,19 @@ export enum GamePhase {
   PROFILE_CHOICE = "PROFILE_CHOICE",
   MISSION_SELECT = "MISSION_SELECT",
   GUP_SELECT = "GUP_SELECT",
-  GUP_HANGAR = "GUP_HANGAR",
+  GUP_GARAGE = "GUP_GARAGE",
   LAUNCH = "LAUNCH",
   TRAVEL = "TRAVEL",
-  RESCUE_SITE_TRANSITION = "RESCUE_SITE_TRANSITION",
-  RESCUE_TUTORIAL = "RESCUE_TUTORIAL",
   RESCUE_ACTIVE = "RESCUE_ACTIVE",
-  RESCUE_BIOCARE = "RESCUE_BIOCARE",
-  RESCUE_SUCCESS = "RESCUE_SUCCESS",
+  RESCUE_CARE = "RESCUE_CARE",
+  RESCUE_CELEBRATION = "RESCUE_CELEBRATION",
   MISSION_SUCCESS = "MISSION_SUCCESS",
   LOGBOOK = "LOGBOOK",
   ECO_QUIZ = "ECO_QUIZ",
   PAUSE = "PAUSE"
 }
 
-export type OceanEnvironment = "coral-reef" | "kelp-forest" | "deep-trench" | "arctic-ocean" | "abyssal-zone";
+export type OceanEnvironment = "coral-reef" | "kelp-forest" | "deep-trench" | "kelp-shore" | "abyssal-zone";
 
 export interface MissionData {
   id: string;
@@ -39,8 +37,9 @@ export interface MissionData {
   badge: string;
   funTrivia: string[];
   depthMeters: number;
-  careTreatName?: string;
-  careTreatIcon?: string;
+  careTreatName: string;
+  careTreatIcon: string;
+  rewardStars: number;
 }
 
 export interface GupData {
@@ -51,15 +50,27 @@ export interface GupData {
   accentColor: string;
   type: "speed" | "balanced" | "heavy" | "claw" | "medical";
   icon: string;
-  speedMultiplier: number;
+  baseSpeedMultiplier: number;
   armorLabel: string;
   specialAbility: string;
+  unlockedByDefault?: boolean;
+  unlockRequirement?: string;
 }
 
 export interface GupUpgrades {
-  speedLevel: number; // 0..3 (+10% per level)
-  shieldLevel: number; // 0..3 (absorbs 1..3 hits)
-  sonarLevel: number; // 0..3 (+25% pulse radius)
+  speedLevel: number; // 1..5
+  shieldLevel: number; // 1..5
+  sonarLevel: number; // 1..5
+  lightLevel: number; // 1..5
+}
+
+export interface CurrentStream {
+  id: string;
+  worldX: number;
+  y: number;
+  width: number;
+  height: number;
+  flowSpeed: number;
 }
 
 export interface TravelObstacle {
@@ -68,18 +79,10 @@ export interface TravelObstacle {
   y: number;
   width: number;
   height: number;
-  kind: string;
+  kind: "coral" | "rock" | "jellyfish" | "mine" | "plastic_bag";
   color: string;
   name: string;
   hitAnim?: number;
-}
-
-export interface CollectibleStar {
-  id: string;
-  worldX: number;
-  y: number;
-  collected: boolean;
-  type: "star" | "bio-orb";
 }
 
 export interface BoostRing {
@@ -88,6 +91,24 @@ export interface BoostRing {
   y: number;
   passed: boolean;
   radius: number;
+}
+
+export interface StarCollectible {
+  id: string;
+  worldX: number;
+  y: number;
+  collected: boolean;
+  size: number;
+  glowPhase: number;
+}
+
+export interface SonarEchoPoint {
+  id: string;
+  worldX: number;
+  y: number;
+  discovered: boolean;
+  type: "signal" | "creature" | "waypoint" | "star_cluster";
+  name: string;
 }
 
 export interface FishBoid {
@@ -160,45 +181,33 @@ export interface WhaleDebris {
   velocity?: { x: number; y: number };
 }
 
-export interface OtterOilSpot {
+export interface OtterTangle {
   id: string;
   order: number;
   x: number;
   y: number;
   radius: number;
-  cleanedPercent: number; // 0 -> 100
   cleared: boolean;
+  label: string;
 }
 
-export interface SquidCable {
+export interface SquidCrystal {
   id: string;
   order: number;
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  cut: boolean;
-  color: string;
-  angle: number;
-}
-
-export interface BioCareTarget {
-  id: string;
-  type: "spray" | "feed" | "scan";
-  label: string;
-  icon: string;
   x: number;
   y: number;
-  progress: number;
-  completed: boolean;
+  cleared: boolean;
+  label: string;
 }
 
 export interface RescueVitals {
-  heartRate: number; // BPM (e.g. 110 -> 65)
-  stressLevel: number; // 100% -> 0%
-  oxygenLevel: number; // 75% -> 98%
+  heartRate: number; // BPM
+  stressLevel: number; // %
+  oxygenLevel: number; // %
   scanned: boolean;
-  healthPercent: number; // 20% -> 100%
+  medicineSprayed: number; // 0..100%
+  treatFedCount: number; // 0..3
+  healthPercent: number; // 0..100%
 }
 
 export interface QuizQuestion {
@@ -208,13 +217,24 @@ export interface QuizQuestion {
   correctIndex: number;
   explanation: string;
   animalIcon: string;
+  rewardStars: number;
+}
+
+export interface MissionProgressRecord {
+  completed: boolean;
+  rescuedCount: number;
+  firstRescuedAt?: string;
+  bestStarsEarned?: number;
+  readinessAchieved: number;
 }
 
 export interface UserStats {
-  completedMissions: Record<string, { stars: number; bestTime: number; unlockedAt: string }>;
+  totalStars: number;
+  completedMissions: Record<string, MissionProgressRecord>;
   collectedBadges: string[];
   totalRescuedAnimals: number;
-  totalStars: number;
-  upgrades: Record<string, GupUpgrades>;
-  quizPassedCount: number;
+  ecosystemRestoration: number; // 0% -> 100%
+  unlockedGups: string[];
+  gupUpgrades: Record<string, GupUpgrades>;
+  quizMasterUnlocked: boolean;
 }

@@ -1,10 +1,19 @@
-import { GamePhase, MissionData, GupData, UserStats, GupUpgrades, QuizQuestion } from "./types";
+import {
+  GamePhase,
+  MissionData,
+  GupData,
+  UserStats,
+  QuizQuestion,
+  MissionProgressRecord,
+  GupUpgrades
+} from "./types";
 import { MISSIONS, GUPS, ECO_QUIZ_QUESTIONS } from "./missions-data";
 import { TravelEngine } from "./travel-engine";
 import { RescueEngine } from "./rescue-engine";
 import { Audio } from "./audio";
+import { RescueReadiness } from "./travel/readiness";
 
-const STORAGE_KEY = "ocean_rescue_stats_v2";
+const STORAGE_KEY = "ocean_rescue_restoration_v4";
 
 export class OceanRescueGame {
   private currentPhase: GamePhase = GamePhase.MISSION_SELECT;
@@ -16,20 +25,22 @@ export class OceanRescueGame {
   private canvas: HTMLCanvasElement;
 
   private isPaused = false;
-  private resumeCountdownTimer: number | null = null;
-  private launchTimer: number | null = null;
-  private isBgmMuted = true;
+  private isBgmMuted = false;
 
-  // Persistent User Progress
+  // Persistent User Progress: Stars, Upgrades, Ecosystem Restoration & Badges
   private userStats: UserStats = {
+    totalStars: 120,
     completedMissions: {},
     collectedBadges: [],
     totalRescuedAnimals: 0,
-    totalStars: 0,
-    upgrades: {
-      speedLevel: 0,
-      shieldLevel: 0,
-      sonarLevel: 0
+    ecosystemRestoration: 0,
+    unlockedGups: ["gup-a", "gup-b", "gup-c"],
+    gupUpgrades: {
+      "gup-a": { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 },
+      "gup-b": { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 },
+      "gup-c": { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 },
+      "gup-d": { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 },
+      "gup-e": { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 }
     },
     quizMasterUnlocked: false
   };
@@ -64,14 +75,18 @@ export class OceanRescueGame {
         this.userStats = {
           ...this.userStats,
           ...parsed,
-          upgrades: {
-            ...this.userStats.upgrades,
-            ...(parsed.upgrades || {})
+          totalStars: parsed.totalStars ?? 120,
+          completedMissions: parsed.completedMissions || {},
+          collectedBadges: parsed.collectedBadges || [],
+          unlockedGups: parsed.unlockedGups || ["gup-a", "gup-b", "gup-c"],
+          gupUpgrades: {
+            ...this.userStats.gupUpgrades,
+            ...(parsed.gupUpgrades || {})
           }
         };
       }
     } catch {
-      // LocalStorage fallback
+      // Fallback
     }
   }
 
@@ -87,864 +102,642 @@ export class OceanRescueGame {
   private updateStatsUI() {
     const starsEl = document.getElementById("ocean-rescue-stat-stars");
     const badgesEl = document.getElementById("ocean-rescue-stat-badges");
+    const restoEl = document.getElementById("ocean-rescue-stat-resto");
 
-    if (starsEl) starsEl.textContent = String(this.userStats.totalStars);
+    if (starsEl) {
+      starsEl.textContent = `${this.userStats.totalStars} ⭐️`;
+    }
     if (badgesEl) {
       badgesEl.textContent = `${this.userStats.collectedBadges.length} / ${MISSIONS.length}`;
+    }
+    if (restoEl) {
+      restoEl.textContent = `${this.userStats.ecosystemRestoration}%`;
     }
   }
 
   private bindUI() {
-    // Top Bar Actions
-    const bgmBtn = document.getElementById("ocean-rescue-btn-bgm");
-    const muteBtn = document.getElementById("ocean-rescue-btn-mute");
-    const logbookBtn = document.getElementById("ocean-rescue-btn-logbook");
-    const logbookModal = document.getElementById("ocean-rescue-logbook-modal");
-    const logbookClose = document.getElementById("ocean-rescue-logbook-close");
-
-    const hangarBtn = document.getElementById("ocean-rescue-btn-hangar");
-    const hangarModal = document.getElementById("ocean-rescue-hangar-modal");
-    const hangarClose = document.getElementById("ocean-rescue-hangar-close");
-
-    const quizBtn = document.getElementById("ocean-rescue-btn-quiz");
-    const quizModal = document.getElementById("ocean-rescue-quiz-modal");
-    const quizClose = document.getElementById("ocean-rescue-quiz-close");
-
-    if (bgmBtn) {
-      bgmBtn.addEventListener("click", () => {
-        const playing = Audio.toggleBGM();
-        this.isBgmMuted = !playing;
-        bgmBtn.textContent = playing ? "🎵 BGM ON" : "🔇 BGM OFF";
-        Audio.playBubble();
-      });
-    }
-
-    if (muteBtn) {
-      muteBtn.addEventListener("click", () => {
-        const muted = Audio.toggleMute();
-        muteBtn.textContent = muted ? "🔇 음소거" : "🔊 사운드";
-        if (!muted) Audio.playBubble();
-      });
-    }
-
-    const showModal = (modal: HTMLElement | null) => {
-      if (!modal) return;
-      modal.hidden = false;
-      modal.style.display = "flex";
+    // Navigation bar buttons
+    document.getElementById("btn-nav-missions")?.addEventListener("click", () => {
       Audio.playBubble();
-    };
+      this.renderMissionSelect();
+      this.setPhase(GamePhase.MISSION_SELECT);
+    });
 
-    const hideModal = (modal: HTMLElement | null) => {
-      if (!modal) return;
-      modal.hidden = true;
-      modal.style.display = "none";
+    document.getElementById("btn-nav-garage")?.addEventListener("click", () => {
       Audio.playBubble();
-    };
+      this.renderGarage();
+      this.setPhase(GamePhase.GUP_GARAGE);
+    });
 
-    // Modal Opening & Closing with Backdrop clicks
-    if (logbookBtn && logbookModal) {
-      logbookBtn.addEventListener("click", () => {
-        this.renderLogbook();
-        showModal(logbookModal);
-      });
-    }
+    document.getElementById("btn-nav-logbook")?.addEventListener("click", () => {
+      Audio.playBubble();
+      this.renderLogbook();
+      this.setPhase(GamePhase.LOGBOOK);
+    });
 
-    if (logbookClose && logbookModal) {
-      logbookClose.addEventListener("click", () => {
-        hideModal(logbookModal);
-      });
-    }
-    if (logbookModal) {
-      logbookModal.addEventListener("click", (e) => {
-        if (e.target === logbookModal) {
-          hideModal(logbookModal);
-        }
-      });
-    }
+    document.getElementById("btn-nav-quiz")?.addEventListener("click", () => {
+      Audio.playBubble();
+      this.startQuiz();
+    });
 
-    if (hangarBtn && hangarModal) {
-      hangarBtn.addEventListener("click", () => {
-        this.renderHangar();
-        showModal(hangarModal);
-      });
-    }
-
-    if (hangarClose && hangarModal) {
-      hangarClose.addEventListener("click", () => {
-        hideModal(hangarModal);
-      });
-    }
-    if (hangarModal) {
-      hangarModal.addEventListener("click", (e) => {
-        if (e.target === hangarModal) {
-          hideModal(hangarModal);
-        }
-      });
-    }
-
-    if (quizBtn && quizModal) {
-      quizBtn.addEventListener("click", () => {
-        this.startQuiz();
-        showModal(quizModal);
-      });
-    }
-
-    if (quizClose && quizModal) {
-      quizClose.addEventListener("click", () => {
-        hideModal(quizModal);
-      });
-    }
-    if (quizModal) {
-      quizModal.addEventListener("click", (e) => {
-        if (e.target === quizModal) {
-          hideModal(quizModal);
-        }
-      });
-    }
-
-    // Global Keydown for Escape & Pause shortcut
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        if (logbookModal && !logbookModal.hidden) {
-          hideModal(logbookModal);
-          return;
-        }
-        if (hangarModal && !hangarModal.hidden) {
-          hideModal(hangarModal);
-          return;
-        }
-        if (quizModal && !quizModal.hidden) {
-          hideModal(quizModal);
-          return;
-        }
-        if (this.currentPhase === GamePhase.TRAVEL || this.currentPhase === GamePhase.RESCUE_ACTIVE) {
-          this.togglePause(!this.isPaused);
-        }
-      } else if (e.key === "p" || e.key === "P") {
-        if (this.currentPhase === GamePhase.TRAVEL || this.currentPhase === GamePhase.RESCUE_ACTIVE) {
-          this.togglePause(!this.isPaused);
-        }
+    // Audio & BGM Toggle
+    document.getElementById("btn-toggle-bgm")?.addEventListener("click", () => {
+      this.isBgmMuted = !this.isBgmMuted;
+      Audio.toggleBGM();
+      const btn = document.getElementById("btn-toggle-bgm");
+      if (btn) {
+        btn.textContent = this.isBgmMuted ? "🔇 BGM 꺼짐" : "🎵 BGM 켜짐";
       }
     });
 
-    // Upgrade buttons
-    this.bindUpgradeButtons();
-
-    // GUP back & launch buttons
-    const gupBackBtn = document.getElementById("ocean-rescue-gup-back");
-    const gupLaunchBtn = document.getElementById("ocean-rescue-gup-launch");
-
-    if (gupBackBtn) {
-      gupBackBtn.addEventListener("click", () => {
-        this.renderMissionSelect();
-        this.setPhase(GamePhase.MISSION_SELECT);
-        Audio.playBubble();
-      });
-    }
-
-    if (gupLaunchBtn) {
-      gupLaunchBtn.addEventListener("click", () => {
-        this.startLaunchSequence();
-      });
-    }
-
-    // Launch skip
-    const launchSection = document.getElementById("ocean-rescue-launch");
-    const launchSkip = document.getElementById("ocean-rescue-launch-skip");
-    const skipFn = (e?: Event) => {
-      if (e) e.stopPropagation();
-      if (this.currentPhase === GamePhase.LAUNCH) {
-        this.startTravel();
-      }
-    };
-    if (launchSection) launchSection.addEventListener("click", skipFn);
-    if (launchSkip) launchSkip.addEventListener("click", skipFn);
-
-    // Pause Controls
-    const pauseBtn = document.getElementById("ocean-rescue-pause-button");
-    const pauseResume = document.getElementById("ocean-rescue-pause-resume");
-    const pauseMenuBtn = document.getElementById("ocean-rescue-pause-menu-button");
-
-    if (pauseBtn) {
-      pauseBtn.addEventListener("click", () => this.togglePause(true));
-    }
-    if (pauseResume) {
-      pauseResume.addEventListener("click", () => this.resumeGame());
-    }
-    if (pauseMenuBtn) {
-      pauseMenuBtn.addEventListener("click", () => {
-        this.togglePause(false);
-        this.stopEngines();
-        this.renderMissionSelect();
-        this.setPhase(GamePhase.MISSION_SELECT);
-      });
-    }
-
-    // Volume Sliders
-    const soundSlider = document.getElementById("ocean-rescue-volume-sound") as HTMLInputElement;
-    const voiceSlider = document.getElementById("ocean-rescue-volume-voice") as HTMLInputElement;
-    const soundVal = document.getElementById("ocean-rescue-volume-sound-val");
-    const voiceVal = document.getElementById("ocean-rescue-volume-voice-val");
-
-    if (soundSlider) {
-      soundSlider.addEventListener("input", () => {
-        const val = Number(soundSlider.value);
-        Audio.setSoundVolume(val);
-        if (soundVal) soundVal.textContent = String(val);
-        Audio.playBubble();
-      });
-    }
-    if (voiceSlider) {
-      voiceSlider.addEventListener("input", () => {
-        const val = Number(voiceSlider.value);
-        Audio.setVoiceVolume(val);
-        if (voiceVal) voiceVal.textContent = String(val);
-      });
-    }
-
-    // Mission Complete Buttons
-    const continueBtn = document.getElementById("ocean-rescue-mission-complete-continue");
-    const replayBtn = document.getElementById("ocean-rescue-mission-complete-replay");
-
-    if (continueBtn) {
-      continueBtn.addEventListener("click", () => {
-        const currentIdx = MISSIONS.findIndex(m => m.id === this.selectedMission.id);
-        const nextMission = MISSIONS[(currentIdx + 1) % MISSIONS.length];
-        this.selectedMission = nextMission;
-        this.renderMissionSelect();
-        this.setPhase(GamePhase.MISSION_SELECT);
-        Audio.playBubble();
-      });
-    }
-    if (replayBtn) {
-      replayBtn.addEventListener("click", () => {
-        this.startLaunchSequence();
-      });
-    }
-  }
-
-  // --- Upgrade Workshop / Hangar ---
-  private renderHangar() {
-    const upg = this.userStats.upgrades || { speedLevel: 0, shieldLevel: 0, sonarLevel: 0 };
-    
-    const hangarSubtitle = document.querySelector("#ocean-rescue-hangar-modal .ocean-rescue-modal-card p");
-    if (hangarSubtitle) {
-      hangarSubtitle.innerHTML = `별(⭐)을 사용하여 탐험선 장비를 강화하세요.<br><span style="display:inline-block; margin-top:6px; font-weight:700; color:#ffd54f; background:rgba(255,213,79,0.15); padding:4px 10px; border-radius:6px; border:1px solid rgba(255,213,79,0.3);">⭐ 현재 보유 별: ${this.userStats.totalStars}개</span>`;
-    }
-
-    // Speed
-    const speedLvlEl = document.getElementById("ocean-rescue-upg-speed-lvl");
-    const speedBtn = document.getElementById("ocean-rescue-btn-upg-speed") as HTMLButtonElement;
-    if (speedLvlEl) speedLvlEl.textContent = String(upg.speedLevel);
-    this.updateDots("ocean-rescue-upg-speed-dots", upg.speedLevel);
-    if (speedBtn) {
-      const cost = 10;
-      speedBtn.disabled = upg.speedLevel >= 3 || this.userStats.totalStars < cost;
-      speedBtn.textContent = upg.speedLevel >= 3 ? "최대 강화 완료 (MAX)" : `강화 (⭐ ${cost}개 필요)`;
-    }
-
-    // Shield
-    const shieldLvlEl = document.getElementById("ocean-rescue-upg-shield-lvl");
-    const shieldBtn = document.getElementById("ocean-rescue-btn-upg-shield") as HTMLButtonElement;
-    if (shieldLvlEl) shieldLvlEl.textContent = String(upg.shieldLevel);
-    this.updateDots("ocean-rescue-upg-shield-dots", upg.shieldLevel);
-    if (shieldBtn) {
-      const cost = 15;
-      shieldBtn.disabled = upg.shieldLevel >= 3 || this.userStats.totalStars < cost;
-      shieldBtn.textContent = upg.shieldLevel >= 3 ? "최대 강화 완료 (MAX)" : `강화 (⭐ ${cost}개 필요)`;
-    }
-
-    // Sonar
-    const sonarLvlEl = document.getElementById("ocean-rescue-upg-sonar-lvl");
-    const sonarBtn = document.getElementById("ocean-rescue-btn-upg-sonar") as HTMLButtonElement;
-    if (sonarLvlEl) sonarLvlEl.textContent = String(upg.sonarLevel);
-    this.updateDots("ocean-rescue-upg-sonar-dots", upg.sonarLevel);
-    if (sonarBtn) {
-      const cost = 12;
-      sonarBtn.disabled = upg.sonarLevel >= 3 || this.userStats.totalStars < cost;
-      sonarBtn.textContent = upg.sonarLevel >= 3 ? "최대 강화 완료 (MAX)" : `강화 (⭐ ${cost}개 필요)`;
-    }
-  }
-
-  private updateDots(containerId: string, level: number) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    const dots = container.querySelectorAll(".ocean-rescue-upgrade-dot");
-    dots.forEach((d, idx) => {
-      if (idx < level) {
-        d.classList.add("active");
-      } else {
-        d.classList.remove("active");
+    // Submarine Sonar HUD Button
+    document.getElementById("btn-sonar-ping")?.addEventListener("click", () => {
+      if (this.travelEngine) {
+        this.travelEngine.triggerSonar();
       }
     });
-  }
-
-  private bindUpgradeButtons() {
-    const speedBtn = document.getElementById("ocean-rescue-btn-upg-speed");
-    const shieldBtn = document.getElementById("ocean-rescue-btn-upg-shield");
-    const sonarBtn = document.getElementById("ocean-rescue-btn-upg-sonar");
-
-    if (speedBtn) {
-      speedBtn.addEventListener("click", () => {
-        if (!this.userStats.upgrades) this.userStats.upgrades = { speedLevel: 0, shieldLevel: 0, sonarLevel: 0 };
-        if (this.userStats.upgrades.speedLevel < 3 && this.userStats.totalStars >= 10) {
-          this.userStats.totalStars -= 10;
-          this.userStats.upgrades.speedLevel++;
-          Audio.playSuccess();
-          Audio.speak("터보 엔진 업그레이드 완료!", { companion: "트윅" });
-          this.saveStats();
-          this.renderHangar();
-        }
-      });
-    }
-
-    if (shieldBtn) {
-      shieldBtn.addEventListener("click", () => {
-        if (!this.userStats.upgrades) this.userStats.upgrades = { speedLevel: 0, shieldLevel: 0, sonarLevel: 0 };
-        if (this.userStats.upgrades.shieldLevel < 3 && this.userStats.totalStars >= 15) {
-          this.userStats.totalStars -= 15;
-          this.userStats.upgrades.shieldLevel++;
-          Audio.playSuccess();
-          Audio.speak("에너지 방어막 업그레이드 완료!", { companion: "트윅" });
-          this.saveStats();
-          this.renderHangar();
-        }
-      });
-    }
-
-    if (sonarBtn) {
-      sonarBtn.addEventListener("click", () => {
-        if (!this.userStats.upgrades) this.userStats.upgrades = { speedLevel: 0, shieldLevel: 0, sonarLevel: 0 };
-        if (this.userStats.upgrades.sonarLevel < 3 && this.userStats.totalStars >= 12) {
-          this.userStats.totalStars -= 12;
-          this.userStats.upgrades.sonarLevel++;
-          Audio.playSuccess();
-          Audio.speak("장거리 초음파 소나 업그레이드 완료!", { companion: "트윅" });
-          this.saveStats();
-          this.renderHangar();
-        }
-      });
-    }
-  }
-
-  // --- Marine Ecology Quiz Challenge ---
-  private startQuiz() {
-    this.quizQuestions = [...ECO_QUIZ_QUESTIONS];
-    this.currentQuizIndex = 0;
-    this.quizCorrectCount = 0;
-    this.renderCurrentQuizQuestion();
-  }
-
-  private renderCurrentQuizQuestion() {
-    const q = this.quizQuestions[this.currentQuizIndex];
-    if (!q) {
-      this.finishQuiz();
-      return;
-    }
-
-    const progressEl = document.getElementById("ocean-rescue-quiz-progress-text");
-    const categoryEl = document.getElementById("ocean-rescue-quiz-category-tag");
-    const questionEl = document.getElementById("ocean-rescue-quiz-question");
-    const optionsEl = document.getElementById("ocean-rescue-quiz-options");
-    const expBox = document.getElementById("ocean-rescue-quiz-explanation-box");
-
-    if (progressEl) progressEl.textContent = `문제 ${this.currentQuizIndex + 1} / ${this.quizQuestions.length}`;
-    if (categoryEl) categoryEl.textContent = q.category;
-    if (questionEl) questionEl.textContent = q.question;
-    if (expBox) expBox.hidden = true;
-
-    if (optionsEl) {
-      optionsEl.innerHTML = "";
-      q.options.forEach((optText, optIdx) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "ocean-rescue-quiz-opt";
-        btn.innerHTML = `<span style="font-weight: 800; color: #ffd54f;">${optIdx + 1}.</span> <span>${optText}</span>`;
-        btn.addEventListener("click", () => this.handleQuizAnswer(optIdx, btn, q));
-        optionsEl.appendChild(btn);
-      });
-    }
-  }
-
-  private handleQuizAnswer(selectedIdx: number, selectedBtn: HTMLButtonElement, q: QuizQuestion) {
-    const optionsEl = document.getElementById("ocean-rescue-quiz-options");
-    if (optionsEl) {
-      const allBtns = optionsEl.querySelectorAll<HTMLButtonElement>("button");
-      allBtns.forEach(b => (b.disabled = true));
-    }
-
-    const isCorrect = selectedIdx === q.correctAnswer;
-    const expBox = document.getElementById("ocean-rescue-quiz-explanation-box");
-    const resTitle = document.getElementById("ocean-rescue-quiz-result-title");
-    const expText = document.getElementById("ocean-rescue-quiz-explanation");
-    const nextBtn = document.getElementById("ocean-rescue-quiz-next-btn");
-
-    if (isCorrect) {
-      this.quizCorrectCount++;
-      selectedBtn.classList.add("correct");
-      Audio.playSuccess();
-      if (resTitle) resTitle.textContent = "🎉 정답입니다! (+⭐ 5개 획득)";
-      this.userStats.totalStars += 5;
-      this.saveStats();
-    } else {
-      selectedBtn.classList.add("wrong");
-      Audio.playHit();
-      if (resTitle) resTitle.textContent = `❌ 아쉽네요! 정답은 ${q.correctAnswer + 1}번입니다.`;
-    }
-
-    if (expText) expText.textContent = q.explanation;
-    if (expBox) expBox.hidden = false;
-
-    if (nextBtn) {
-      nextBtn.textContent = this.currentQuizIndex === this.quizQuestions.length - 1 ? "결과 보기 🏆" : "다음 문제 ▶";
-      nextBtn.onclick = () => {
-        this.currentQuizIndex++;
-        this.renderCurrentQuizQuestion();
-        Audio.playBubble();
-      };
-    }
-  }
-
-  private finishQuiz() {
-    const questionEl = document.getElementById("ocean-rescue-quiz-question");
-    const optionsEl = document.getElementById("ocean-rescue-quiz-options");
-    const expBox = document.getElementById("ocean-rescue-quiz-explanation-box");
-    const progressEl = document.getElementById("ocean-rescue-quiz-progress-text");
-    const categoryEl = document.getElementById("ocean-rescue-quiz-category-tag");
-
-    if (progressEl) progressEl.textContent = "퀴즈 완료";
-    if (categoryEl) categoryEl.textContent = "최종 결과";
-    if (optionsEl) optionsEl.innerHTML = "";
-    if (expBox) expBox.hidden = true;
-
-    if (questionEl) {
-      const passed = this.quizCorrectCount >= 4;
-      if (passed && !this.userStats.quizMasterUnlocked) {
-        this.userStats.quizMasterUnlocked = true;
-        this.userStats.collectedBadges.push("옥토 퀴즈 박사");
-        this.saveStats();
-      }
-
-      questionEl.innerHTML = `
-        <div style="text-align: center; padding: 16px 8px;">
-          <div style="font-size: 38px; margin-bottom: 10px;">🎓 퀴즈 챌린지 완료!</div>
-          <div style="font-size: 20px; color: #ffd54f; font-weight: 800; margin-bottom: 8px;">
-            맞힌 문제: ${this.quizCorrectCount} / ${this.quizQuestions.length}
-          </div>
-          <p style="margin-top: 10px; font-size: 14px; color: #b2ebf2; line-height: 1.6;">
-            ${passed ? "대단해요! 해양 생태에 대해 깊이 이해하고 계시네요! 🎖️ <strong>[옥토 퀴즈 박사]</strong> 훈장이 수여되었습니다!" : "수고하셨습니다! 도감을 참고하여 다시 도전해보세요!"}
-          </p>
-          <div style="margin-top: 20px; display: flex; justify-content: center; gap: 12px;">
-            <button id="ocean-rescue-quiz-retry-btn" type="button" class="ocean-rescue-btn-secondary" style="font-weight: 700;">🔄 다시 풀기</button>
-          </div>
-        </div>
-      `;
-
-      const retryBtn = document.getElementById("ocean-rescue-quiz-retry-btn");
-      if (retryBtn) {
-        retryBtn.addEventListener("click", () => {
-          this.startQuiz();
-          Audio.playBubble();
-        });
-      }
-    }
   }
 
   public setPhase(phase: GamePhase) {
     this.currentPhase = phase;
-    const root = document.getElementById("ocean-rescue-root");
-    if (root) {
-      root.setAttribute("data-phase", phase.toLowerCase());
-      root.setAttribute("data-ocean-rescue-ready", "true");
+
+    // Show/Hide overlays
+    const views = [
+      "view-mission-select",
+      "view-gup-select",
+      "view-gup-garage",
+      "view-launch",
+      "view-travel",
+      "view-rescue",
+      "view-success",
+      "view-logbook",
+      "view-quiz"
+    ];
+
+    views.forEach((v) => {
+      const el = document.getElementById(v);
+      if (el) el.classList.add("hidden");
+    });
+
+    if (phase === GamePhase.MISSION_SELECT) {
+      document.getElementById("view-mission-select")?.classList.remove("hidden");
+    } else if (phase === GamePhase.GUP_SELECT) {
+      document.getElementById("view-gup-select")?.classList.remove("hidden");
+    } else if (phase === GamePhase.GUP_GARAGE) {
+      document.getElementById("view-gup-garage")?.classList.remove("hidden");
+    } else if (phase === GamePhase.LAUNCH) {
+      document.getElementById("view-launch")?.classList.remove("hidden");
+    } else if (phase === GamePhase.TRAVEL) {
+      document.getElementById("view-travel")?.classList.remove("hidden");
+    } else if (phase === GamePhase.RESCUE_ACTIVE || phase === GamePhase.RESCUE_CARE) {
+      document.getElementById("view-rescue")?.classList.remove("hidden");
+    } else if (phase === GamePhase.MISSION_SUCCESS) {
+      document.getElementById("view-success")?.classList.remove("hidden");
+    } else if (phase === GamePhase.LOGBOOK) {
+      document.getElementById("view-logbook")?.classList.remove("hidden");
+    } else if (phase === GamePhase.ECO_QUIZ) {
+      document.getElementById("view-quiz")?.classList.remove("hidden");
     }
-
-    // Toggle Section visibilities
-    const missionSection = document.getElementById("ocean-rescue-mission-select");
-    const gupSection = document.getElementById("ocean-rescue-gup-select");
-    const launchSection = document.getElementById("ocean-rescue-launch");
-    const stageSection = document.getElementById("ocean-rescue-stage");
-    const rescueOverlay = document.getElementById("ocean-rescue-rescue-overlay");
-    const successSection = document.getElementById("ocean-rescue-mission-success");
-    const pauseBtn = document.getElementById("ocean-rescue-pause-button");
-    const travelHelp = document.getElementById("ocean-rescue-travel-help");
-    const travelProgress = document.getElementById("ocean-rescue-travel-progress");
-
-    if (missionSection) missionSection.style.display = phase === GamePhase.MISSION_SELECT ? "block" : "none";
-    if (gupSection) gupSection.hidden = phase !== GamePhase.GUP_SELECT;
-    if (launchSection) launchSection.hidden = phase !== GamePhase.LAUNCH;
-    if (stageSection) stageSection.hidden = phase !== GamePhase.TRAVEL && phase !== GamePhase.RESCUE_ACTIVE && phase !== GamePhase.RESCUE_TUTORIAL && phase !== GamePhase.RESCUE_SITE_TRANSITION;
-    if (rescueOverlay) rescueOverlay.hidden = phase !== GamePhase.RESCUE_ACTIVE && phase !== GamePhase.RESCUE_TUTORIAL && phase !== GamePhase.RESCUE_SITE_TRANSITION;
-    if (successSection) successSection.hidden = phase !== GamePhase.MISSION_SUCCESS;
-    if (pauseBtn) pauseBtn.hidden = phase !== GamePhase.TRAVEL && phase !== GamePhase.RESCUE_ACTIVE;
-    if (travelHelp) travelHelp.hidden = phase !== GamePhase.TRAVEL;
-    if (travelProgress) travelProgress.hidden = phase !== GamePhase.TRAVEL;
   }
 
-  // --- 1. Mission Select ---
+  // 1. Mission Select Screen
   private renderMissionSelect() {
-    const list = document.getElementById("ocean-rescue-mission-list");
-    if (!list) return;
-    list.innerHTML = "";
+    const listEl = document.getElementById("mission-card-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
 
     MISSIONS.forEach((m) => {
-      const isCompleted = !!this.userStats.completedMissions[m.id];
-      const stars = this.userStats.completedMissions[m.id]?.stars || 0;
-      const starIcons = isCompleted ? "⭐".repeat(stars) : "";
+      const isCompleted = !!this.userStats.completedMissions[m.id]?.completed;
+      const card = document.createElement("div");
+      card.className = `p-6 rounded-2xl border transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl cursor-pointer ${
+        isCompleted
+          ? "bg-slate-900/90 border-cyan-500/60 shadow-cyan-500/10"
+          : "bg-slate-900/80 border-slate-700/80 hover:border-amber-400/80"
+      }`;
 
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "ocean-rescue-mission-card";
-      btn.innerHTML = `
-        <span class="ocean-rescue-mission-avatar">${m.animalIcon}</span>
-        <span class="ocean-rescue-mission-title">${m.title}</span>
-        <span class="ocean-rescue-mission-companion">대원: ${m.companion}</span>
-        <span class="ocean-rescue-mission-summary">${m.summary}</span>
-        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
-          <span class="ocean-rescue-mission-status">${isCompleted ? "구조 완료 " + starIcons : "출동 대기"}</span>
-          <span style="font-size: 11px; color: #80deea; background: rgba(0,0,0,0.3); padding: 3px 6px; border-radius: 6px;">수심 ${m.depthMeters}m</span>
+      card.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <span class="px-3 py-1 text-xs font-semibold rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800">
+            수심 ${m.depthMeters}m
+          </span>
+          <span class="text-xs font-semibold ${isCompleted ? "text-emerald-400" : "text-amber-400"}">
+            ${isCompleted ? "⭐️ 구조 성공" : `⭐️ +${m.rewardStars} 별`}
+          </span>
+        </div>
+        <div class="flex items-center space-x-4 mb-4">
+          <div class="text-5xl p-3 bg-slate-800/80 rounded-2xl border border-slate-700">
+            ${m.animalIcon}
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white mb-1">${m.title}</h3>
+            <p class="text-xs text-cyan-200 font-medium">${m.animalName}</p>
+          </div>
+        </div>
+        <p class="text-sm text-slate-300 mb-4 line-clamp-2 leading-relaxed">
+          ${m.summary}
+        </p>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
+          <span class="text-slate-400">함께할 대원: <strong class="text-amber-300">${m.companionAvatar} ${m.companion}</strong></span>
+          <button class="px-4 py-2 rounded-xl font-bold transition-all ${
+            isCompleted
+              ? "bg-cyan-600 hover:bg-cyan-500 text-white"
+              : "bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold shadow-md shadow-amber-500/20"
+          }">
+            ${isCompleted ? "다시 출동" : "탐험선 선택"}
+          </button>
         </div>
       `;
-      btn.addEventListener("click", () => {
+
+      card.addEventListener("click", () => {
+        Audio.playBubble();
         this.selectedMission = m;
         this.renderGupSelect();
         this.setPhase(GamePhase.GUP_SELECT);
-        Audio.playBubble();
       });
-      list.appendChild(btn);
-    });
 
-    const status = document.getElementById("ocean-rescue-status");
-    if (status) status.textContent = "구조할 해양 생물 미션을 선택하세요.";
+      listEl.appendChild(card);
+    });
   }
 
-  // --- 2. GUP Select ---
+  // 2. GUP Select Screen
   private renderGupSelect() {
-    const list = document.getElementById("ocean-rescue-gup-list");
-    const missionLabel = document.getElementById("ocean-rescue-gup-mission");
-    if (missionLabel) missionLabel.textContent = `출동 미션: ${this.selectedMission.title}`;
-    if (!list) return;
-    list.innerHTML = "";
+    const titleEl = document.getElementById("gup-select-mission-title");
+    if (titleEl) {
+      titleEl.textContent = `🎯 ${this.selectedMission.title} - 출동 탐험선 선택`;
+    }
 
-    GUPS.forEach((g) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `ocean-rescue-gup-card ${this.selectedGup.id === g.id ? "selected" : ""}`;
-      btn.setAttribute("aria-pressed", this.selectedGup.id === g.id ? "true" : "false");
-      btn.innerHTML = `
-        <span class="ocean-rescue-gup-icon">${g.icon}</span>
-        <span class="ocean-rescue-gup-name">${g.name}</span>
-        <span class="ocean-rescue-gup-description">${g.description}</span>
-        <div class="ocean-rescue-gup-spec">
-          <span>속도: ${Math.round(g.speedMultiplier * 100)}%</span>
-          <span>특수기: ${g.specialAbility}</span>
+    const listEl = document.getElementById("gup-card-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    GUPS.forEach((gup) => {
+      const isUnlocked = this.userStats.unlockedGups.includes(gup.id);
+      const card = document.createElement("div");
+      card.className = `p-6 rounded-2xl border transition-all duration-300 ${
+        isUnlocked
+          ? "bg-slate-900/80 border-slate-700 hover:border-amber-400 hover:-translate-y-1 cursor-pointer"
+          : "bg-slate-950/60 border-slate-800 opacity-60 cursor-not-allowed"
+      }`;
+
+      const upgrades = this.userStats.gupUpgrades[gup.id] || { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 };
+
+      card.innerHTML = `
+        <div class="flex items-center space-x-4 mb-3">
+          <div class="text-5xl p-3 bg-slate-800/80 rounded-2xl border border-slate-700" style="border-color: ${gup.color}">
+            ${gup.icon}
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-white">${gup.name}</h3>
+            <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold" style="background-color: ${gup.color}22; color: ${gup.color}">
+              ${gup.armorLabel}
+            </span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-300 mb-4">${gup.description}</p>
+        <div class="space-y-1.5 text-xs text-slate-400 mb-4 bg-slate-950/40 p-3 rounded-xl">
+          <div class="flex justify-between">
+            <span>속도 레벨:</span>
+            <strong class="text-amber-300">Lv.${upgrades.speedLevel}</strong>
+          </div>
+          <div class="flex justify-between">
+            <span>실드 레벨:</span>
+            <strong class="text-cyan-300">Lv.${upgrades.shieldLevel}</strong>
+          </div>
+          <div class="flex justify-between">
+            <span>특수 능력:</span>
+            <strong class="text-emerald-300">${gup.specialAbility}</strong>
+          </div>
+        </div>
+        <button class="w-full py-2.5 rounded-xl font-bold transition-all ${
+          isUnlocked
+            ? "bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold shadow-md shadow-amber-500/20"
+            : "bg-slate-800 text-slate-500"
+        }">
+          ${isUnlocked ? "탐험선 탑승 & 출동 준비" : gup.unlockRequirement || "잠김"}
+        </button>
+      `;
+
+      if (isUnlocked) {
+        card.addEventListener("click", () => {
+          Audio.playBubble();
+          this.selectedGup = gup;
+          this.startLaunchCinematic();
+        });
+      }
+
+      listEl.appendChild(card);
+    });
+  }
+
+  // 3. GUP Garage & Upgrades
+  private renderGarage() {
+    const listEl = document.getElementById("garage-gup-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+
+    GUPS.forEach((gup) => {
+      const isUnlocked = this.userStats.unlockedGups.includes(gup.id);
+      const card = document.createElement("div");
+      card.className = "bg-slate-900/80 border border-slate-700/80 p-6 rounded-2xl shadow-xl";
+
+      const upgrades = this.userStats.gupUpgrades[gup.id] || { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 };
+      const upgradeCost = 40;
+
+      card.innerHTML = `
+        <div class="flex items-center space-x-4 mb-4">
+          <div class="text-5xl p-3 bg-slate-800/80 rounded-2xl border" style="border-color: ${gup.color}">
+            ${gup.icon}
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white">${gup.name}</h3>
+            <p class="text-xs text-slate-400">${gup.specialAbility}</p>
+          </div>
+        </div>
+
+        <div class="space-y-3 mb-6">
+          <!-- Speed Upgrade -->
+          <div class="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl">
+            <div>
+              <div class="text-sm font-bold text-slate-200">🚀 터보 엔진 추진력</div>
+              <div class="text-xs text-slate-400">레벨 ${upgrades.speedLevel} / 5</div>
+            </div>
+            <button id="upgrade-speed-${gup.id}" class="px-3 py-1.5 rounded-lg text-xs font-bold ${
+              upgrades.speedLevel >= 5
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                : this.userStats.totalStars >= upgradeCost
+                ? "bg-amber-400 hover:bg-amber-300 text-slate-950"
+                : "bg-slate-800 text-slate-400"
+            }">
+              ${upgrades.speedLevel >= 5 ? "최고 레벨" : `강화 (⭐️ ${upgradeCost})`}
+            </button>
+          </div>
+
+          <!-- Shield Upgrade -->
+          <div class="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl">
+            <div>
+              <div class="text-sm font-bold text-slate-200">🛡️ 에너지 실드 장갑</div>
+              <div class="text-xs text-slate-400">레벨 ${upgrades.shieldLevel} / 5</div>
+            </div>
+            <button id="upgrade-shield-${gup.id}" class="px-3 py-1.5 rounded-lg text-xs font-bold ${
+              upgrades.shieldLevel >= 5
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                : this.userStats.totalStars >= upgradeCost
+                ? "bg-cyan-500 hover:bg-cyan-400 text-slate-950"
+                : "bg-slate-800 text-slate-400"
+            }">
+              ${upgrades.shieldLevel >= 5 ? "최고 레벨" : `강화 (⭐️ ${upgradeCost})`}
+            </button>
+          </div>
+
+          <!-- Sonar Upgrade -->
+          <div class="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl">
+            <div>
+              <div class="text-sm font-bold text-slate-200">📡 광역 소나 탐지기</div>
+              <div class="text-xs text-slate-400">레벨 ${upgrades.sonarLevel} / 5</div>
+            </div>
+            <button id="upgrade-sonar-${gup.id}" class="px-3 py-1.5 rounded-lg text-xs font-bold ${
+              upgrades.sonarLevel >= 5
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                : this.userStats.totalStars >= upgradeCost
+                ? "bg-emerald-400 hover:bg-emerald-300 text-slate-950"
+                : "bg-slate-800 text-slate-400"
+            }">
+              ${upgrades.sonarLevel >= 5 ? "최고 레벨" : `강화 (⭐️ ${upgradeCost})`}
+            </button>
+          </div>
         </div>
       `;
-      btn.addEventListener("click", () => {
-        this.selectedGup = g;
-        const allBtns = list.querySelectorAll("button");
-        allBtns.forEach(b => b.setAttribute("aria-pressed", "false"));
-        btn.setAttribute("aria-pressed", "true");
-        Audio.playBubble();
-      });
-      list.appendChild(btn);
-    });
 
-    const status = document.getElementById("ocean-rescue-status");
-    if (status) status.textContent = "탑승할 탐험선(GUP)을 선택하세요.";
+      listEl.appendChild(card);
+
+      // Bind upgrade actions
+      setTimeout(() => {
+        document.getElementById(`upgrade-speed-${gup.id}`)?.addEventListener("click", () => {
+          if (upgrades.speedLevel < 5 && this.userStats.totalStars >= upgradeCost) {
+            this.userStats.totalStars -= upgradeCost;
+            upgrades.speedLevel++;
+            this.userStats.gupUpgrades[gup.id] = upgrades;
+            Audio.playBoost();
+            this.saveStats();
+            this.renderGarage();
+          }
+        });
+
+        document.getElementById(`upgrade-shield-${gup.id}`)?.addEventListener("click", () => {
+          if (upgrades.shieldLevel < 5 && this.userStats.totalStars >= upgradeCost) {
+            this.userStats.totalStars -= upgradeCost;
+            upgrades.shieldLevel++;
+            this.userStats.gupUpgrades[gup.id] = upgrades;
+            Audio.playBoost();
+            this.saveStats();
+            this.renderGarage();
+          }
+        });
+
+        document.getElementById(`upgrade-sonar-${gup.id}`)?.addEventListener("click", () => {
+          if (upgrades.sonarLevel < 5 && this.userStats.totalStars >= upgradeCost) {
+            this.userStats.totalStars -= upgradeCost;
+            upgrades.sonarLevel++;
+            this.userStats.gupUpgrades[gup.id] = upgrades;
+            Audio.playSonarPing();
+            this.saveStats();
+            this.renderGarage();
+          }
+        });
+      }, 0);
+    });
   }
 
-  // --- 3. Launch Sequence ---
-  private startLaunchSequence() {
-    this.stopEngines();
+  // 4. Launch Cinematic
+  private startLaunchCinematic() {
     this.setPhase(GamePhase.LAUNCH);
     Audio.playOctoAlert();
+    Audio.speak(`${this.selectedMission.companion} 대원! ${this.selectedGup.name} 출동 준비 완료!`);
 
-    const gupName = document.getElementById("ocean-rescue-launch-gup-name");
-    const companion = document.getElementById("ocean-rescue-launch-companion");
-    const briefing = document.getElementById("ocean-rescue-launch-briefing");
+    const companionAvatarEl = document.getElementById("launch-companion-avatar");
+    const companionNameEl = document.getElementById("launch-companion-name");
+    const briefingTextEl = document.getElementById("launch-briefing-text");
+    const countdownEl = document.getElementById("launch-countdown");
 
-    if (gupName) gupName.textContent = this.selectedGup.name;
-    if (companion) companion.textContent = `${this.selectedMission.companion}:`;
-    if (briefing) briefing.textContent = this.selectedMission.briefing;
+    if (companionAvatarEl) companionAvatarEl.textContent = this.selectedMission.companionAvatar;
+    if (companionNameEl) companionNameEl.textContent = this.selectedMission.companion;
+    if (briefingTextEl) briefingTextEl.textContent = this.selectedMission.briefing;
 
-    Audio.speak(this.selectedMission.briefing, { companion: this.selectedMission.companion });
+    let count = 3;
+    if (countdownEl) countdownEl.textContent = `${count}`;
 
-    const status = document.getElementById("ocean-rescue-status");
-    if (status) status.textContent = `출동 준비: ${this.selectedGup.name} — ${this.selectedMission.title}`;
-
-    if (this.launchTimer !== null) {
-      window.clearTimeout(this.launchTimer);
-    }
-
-    this.launchTimer = window.setTimeout(() => {
-      this.launchTimer = null;
-      if (this.currentPhase === GamePhase.LAUNCH) {
-        this.startTravel();
+    const timer = setInterval(() => {
+      count--;
+      if (count > 0) {
+        if (countdownEl) countdownEl.textContent = `${count}`;
+        Audio.playBubble();
+      } else {
+        clearInterval(timer);
+        if (countdownEl) countdownEl.textContent = "출동 (LAUNCH)!";
+        Audio.playBoost();
+        setTimeout(() => {
+          this.startTravel();
+        }, 800);
       }
-    }, 3200);
+    }, 1000);
   }
 
-  // --- 4. Travel Scene ---
+  // 5. Travel Phase
   private startTravel() {
-    this.stopEngines();
     this.setPhase(GamePhase.TRAVEL);
-
-    const helpEl = document.getElementById("ocean-rescue-travel-help");
-    if (helpEl) {
-      helpEl.textContent = "장애물을 피해 이동하세요! 꾹 누르면 계속 이동하며, Space키로 소나를 쏩니다.";
+    if (this.travelEngine) {
+      this.travelEngine.stop();
     }
 
-    const status = document.getElementById("ocean-rescue-status");
-    if (status) status.textContent = "탐험선 항해 중: 구조 현장으로 이동합니다.";
+    const upgrades = this.userStats.gupUpgrades[this.selectedGup.id] || { speedLevel: 1, shieldLevel: 1, sonarLevel: 1, lightLevel: 1 };
 
     this.travelEngine = new TravelEngine(
       this.canvas,
       this.selectedMission,
       this.selectedGup,
-      this.userStats.upgrades,
-      () => this.startRescue()
+      upgrades,
+      () => {
+        // On Arrival at target coordinate
+        this.startRescue();
+      },
+      (starsGained) => {
+        this.userStats.totalStars += starsGained;
+        this.saveStats();
+      }
     );
+
     this.travelEngine.start();
   }
 
-  // --- 5. Rescue Scene ---
+  // 6. Rescue Phase
   private startRescue() {
-    this.stopEngines();
+    if (this.travelEngine) {
+      this.travelEngine.stop();
+      this.travelEngine = null;
+    }
+
     this.setPhase(GamePhase.RESCUE_ACTIVE);
+    Audio.speak(`${this.selectedMission.animalName}을(를) 발견했습니다! ${this.selectedMission.tutorial}`);
 
-    const companionEl = document.getElementById("ocean-rescue-rescue-companion");
-    const situationEl = document.getElementById("ocean-rescue-rescue-situation");
-    const instructionEl = document.getElementById("ocean-rescue-rescue-instruction");
-    const progressEl = document.getElementById("ocean-rescue-rescue-progress");
-    const statusEl = document.getElementById("ocean-rescue-status");
-
-    if (companionEl) companionEl.textContent = `${this.selectedMission.companion}:`;
-    if (situationEl) situationEl.textContent = this.selectedMission.situation;
-    if (instructionEl) instructionEl.textContent = this.selectedMission.tutorial;
-    if (progressEl) progressEl.textContent = "구조 도구를 작동해주세요!";
-    if (statusEl) statusEl.textContent = this.selectedMission.situation;
-
-    Audio.speak(this.selectedMission.situation + " " + this.selectedMission.tutorial, {
-      companion: this.selectedMission.companion
-    });
+    if (this.rescueEngine) {
+      this.rescueEngine.stop();
+    }
 
     this.rescueEngine = new RescueEngine(
       this.canvas,
       this.selectedMission,
       this.selectedGup,
-      this.userStats.upgrades,
       (step) => {
-        const dialog = this.selectedMission.dialogues[step - 1];
-        if (dialog) {
-          Audio.speak(dialog, { companion: this.selectedMission.companion });
-        }
+        // Step done
       },
-      () => this.completeMission()
+      () => {
+        // All rescued!
+        this.completeMissionSuccess();
+      }
     );
+
     this.rescueEngine.start();
   }
 
-  // --- 6. Mission Complete ---
-  private completeMission() {
-    const travelStars = this.travelEngine ? this.travelEngine.starsCollected : 10;
-    this.stopEngines();
-    this.setPhase(GamePhase.MISSION_SUCCESS);
-
-    // Save Progress
-    const starsRating = travelStars >= 12 ? 3 : travelStars >= 6 ? 2 : 1;
-    this.userStats.completedMissions[this.selectedMission.id] = {
-      stars: starsRating,
-      bestTime: 45,
-      unlockedAt: new Date().toISOString()
-    };
-    if (!this.userStats.collectedBadges.includes(this.selectedMission.badge)) {
-      this.userStats.collectedBadges.push(this.selectedMission.badge);
-    }
-    this.userStats.totalStars += travelStars;
-    this.userStats.totalRescuedAnimals += 1;
-    this.saveStats();
-
-    // Populate Mission Success UI
-    const animalEl = document.getElementById("ocean-rescue-mission-success-animal");
-    const destEl = document.getElementById("ocean-rescue-mission-success-destination");
-    const starsEl = document.getElementById("ocean-rescue-mission-stars");
-    const badgeText = document.getElementById("ocean-rescue-badge-text");
-    const ecologyEl = document.getElementById("ocean-rescue-mission-success-ecology");
-    const triviaList = document.getElementById("ocean-rescue-trivia-list");
-
-    if (animalEl) animalEl.textContent = this.selectedMission.animalIcon;
-    if (destEl) destEl.textContent = `${this.selectedMission.title} 완료!`;
-    if (starsEl) starsEl.textContent = "⭐".repeat(starsRating);
-    if (badgeText) badgeText.textContent = `새 훈장 수여: [${this.selectedMission.badge}]`;
-    if (ecologyEl) {
-      ecologyEl.innerHTML = `<strong>🌱 생태 보호 이야기:</strong><br>${this.selectedMission.ecologyFact}`;
-    }
-
-    if (triviaList) {
-      triviaList.innerHTML = "";
-      this.selectedMission.funTrivia.forEach(t => {
-        const li = document.createElement("li");
-        li.textContent = t;
-        triviaList.appendChild(li);
-      });
-    }
-
-    Audio.speak("임무를 완수했습니다! 멋진 구조 작전이었어요!", {
-      companion: this.selectedMission.companion
-    });
-  }
-
-  // --- 7. Logbook & Badge Gallery ---
-  private renderLogbook() {
-    const list = document.getElementById("ocean-rescue-logbook-list");
-    if (!list) return;
-    list.innerHTML = "";
-
-    MISSIONS.forEach(m => {
-      const isCompleted = !!this.userStats.completedMissions[m.id];
-      const stars = this.userStats.completedMissions[m.id]?.stars || 0;
-      const card = document.createElement("div");
-      card.className = `ocean-rescue-logbook-card ${isCompleted ? "unlocked" : "locked"}`;
-      card.style.cursor = isCompleted ? "pointer" : "default";
-
-      if (isCompleted) {
-        card.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span style="font-size: 38px;">${m.animalIcon}</span>
-              <div>
-                <div style="font-weight: 800; color: #fff; font-size: 17px;">${m.animalName}</div>
-                <div style="font-size: 12px; color: #80deea;">담당 대원: ${m.companion} | 수심 ${m.depthMeters}m</div>
-              </div>
-            </div>
-            <div style="text-align: right;">
-              <span class="ocean-rescue-badge-tag" style="display: inline-block;">🎖️ ${m.badge}</span>
-              <div style="font-size: 13px; margin-top: 4px;">${"⭐".repeat(stars)}</div>
-            </div>
-          </div>
-
-          <p style="font-size: 13px; color: #eceff1; margin: 10px 0 6px 0; line-height: 1.5; background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 8px;">
-            <strong>🌱 생태 이야기:</strong> ${m.ecologyFact}
-          </p>
-
-          <div style="margin-top: 8px; font-size: 12px; color: #ffd54f; line-height: 1.4;">
-            <strong>💡 탐험 일지:</strong>
-            <ul style="margin: 4px 0 0 16px; padding: 0; list-style-type: disc;">
-              ${m.funTrivia.map(t => `<li style="margin-bottom: 2px;">${t}</li>`).join("")}
-            </ul>
-          </div>
-
-          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="ocean-rescue-btn-voice-replay ocean-rescue-btn-secondary" style="font-size: 11px; padding: 4px 10px; border-radius: 6px;">
-              🗣️ ${m.companion} 브리핑 듣기
-            </button>
-            <button type="button" class="ocean-rescue-btn-sound-replay ocean-rescue-btn-secondary" style="font-size: 11px; padding: 4px 10px; border-radius: 6px;">
-              🎵 동물 소리 재생
-            </button>
-          </div>
-        `;
-
-        const voiceBtn = card.querySelector(".ocean-rescue-btn-voice-replay");
-        if (voiceBtn) {
-          voiceBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            Audio.speak(`${m.animalName} 생태 정보입니다. ${m.ecologyFact}`, { companion: m.companion });
-          });
-        }
-
-        const soundBtn = card.querySelector(".ocean-rescue-btn-sound-replay");
-        if (soundBtn) {
-          soundBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            if (m.id === "young-whale") {
-              Audio.playWhaleCall();
-            } else if (m.id === "sea-otter") {
-              Audio.playMunch();
-            } else {
-              Audio.playBubble();
-            }
-          });
-        }
-      } else {
-        card.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 12px; opacity: 0.6;">
-            <span style="font-size: 38px;">🔒</span>
-            <div>
-              <div style="font-weight: 700; color: #90a4ae; font-size: 16px;">미확인 생물 [${m.animalName}]</div>
-              <div style="font-size: 12px; color: #78909c;">${m.title} 미션을 완료하여 도감과 훈장을 잠금 해제하세요!</div>
-            </div>
-          </div>
-        `;
-      }
-      list.appendChild(card);
-    });
-  }
-
-  // --- Pause & Resumption ---
-  private togglePause(pause: boolean) {
-    this.isPaused = pause;
-    const pauseOverlay = document.getElementById("ocean-rescue-pause-overlay");
-    if (pauseOverlay) pauseOverlay.hidden = !pause;
-
-    if (pause) {
-      if (this.travelEngine) this.travelEngine.stop();
-      if (this.rescueEngine) this.rescueEngine.stop();
-    } else {
-      if (this.currentPhase === GamePhase.TRAVEL && this.travelEngine) {
-        this.travelEngine.start();
-      } else if (this.currentPhase === GamePhase.RESCUE_ACTIVE && this.rescueEngine) {
-        this.rescueEngine.start();
-      }
-    }
-  }
-
-  private resumeGame() {
-    const countdownEl = document.getElementById("ocean-rescue-pause-countdown");
-    if (!countdownEl) {
-      this.togglePause(false);
-      return;
-    }
-
-    countdownEl.hidden = false;
-    let count = 3;
-    countdownEl.textContent = String(count);
-
-    if (this.resumeCountdownTimer !== null) {
-      window.clearInterval(this.resumeCountdownTimer);
-    }
-
-    this.resumeCountdownTimer = window.setInterval(() => {
-      count--;
-      if (count > 0) {
-        countdownEl.textContent = String(count);
-        Audio.playBubble();
-      } else {
-        if (this.resumeCountdownTimer !== null) {
-          window.clearInterval(this.resumeCountdownTimer);
-          this.resumeCountdownTimer = null;
-        }
-        countdownEl.hidden = true;
-        this.togglePause(false);
-      }
-    }, 600);
-  }
-
-  private stopEngines() {
-    if (this.launchTimer !== null) {
-      window.clearTimeout(this.launchTimer);
-      this.launchTimer = null;
-    }
-    if (this.resumeCountdownTimer !== null) {
-      window.clearInterval(this.resumeCountdownTimer);
-      this.resumeCountdownTimer = null;
-    }
-    if (this.travelEngine) {
-      this.travelEngine.stop();
-      this.travelEngine = null;
-    }
+  // 7. Mission Success & Rewards
+  private completeMissionSuccess() {
     if (this.rescueEngine) {
       this.rescueEngine.stop();
       this.rescueEngine = null;
     }
+
+    this.setPhase(GamePhase.MISSION_SUCCESS);
+    Audio.playCelebration();
+
+    // Grant stars and badge
+    this.userStats.totalStars += this.selectedMission.rewardStars;
+    if (!this.userStats.collectedBadges.includes(this.selectedMission.badge)) {
+      this.userStats.collectedBadges.push(this.selectedMission.badge);
+    }
+    this.userStats.totalRescuedAnimals++;
+    this.userStats.ecosystemRestoration = Math.min(100, Math.round((this.userStats.collectedBadges.length / MISSIONS.length) * 100));
+
+    // Unlock special GUPs
+    if (this.userStats.collectedBadges.length >= 2 && !this.userStats.unlockedGups.includes("gup-d")) {
+      this.userStats.unlockedGups.push("gup-d");
+    }
+    if (this.userStats.collectedBadges.length >= 3 && !this.userStats.unlockedGups.includes("gup-e")) {
+      this.userStats.unlockedGups.push("gup-e");
+    }
+
+    const prevRecord = this.userStats.completedMissions[this.selectedMission.id];
+    this.userStats.completedMissions[this.selectedMission.id] = {
+      completed: true,
+      rescuedCount: (prevRecord?.rescuedCount || 0) + 1,
+      firstRescuedAt: prevRecord?.firstRescuedAt || new Date().toLocaleDateString(),
+      bestStarsEarned: this.selectedMission.rewardStars,
+      readinessAchieved: 1.0
+    };
+
+    this.saveStats();
+
+    // Populate Success UI
+    const animalIconEl = document.getElementById("success-animal-icon");
+    const animalNameEl = document.getElementById("success-animal-name");
+    const factEl = document.getElementById("success-ecology-fact");
+    const badgeNameEl = document.getElementById("success-badge-name");
+    const starsEarnedEl = document.getElementById("success-stars-earned");
+
+    if (animalIconEl) animalIconEl.textContent = this.selectedMission.animalIcon;
+    if (animalNameEl) animalNameEl.textContent = this.selectedMission.animalName;
+    if (factEl) factEl.textContent = this.selectedMission.ecologyFact;
+    if (badgeNameEl) badgeNameEl.textContent = `🎖️ ${this.selectedMission.badge}`;
+    if (starsEarnedEl) starsEarnedEl.textContent = `+${this.selectedMission.rewardStars} ⭐️`;
+
+    const btnContinue = document.getElementById("btn-success-continue");
+    if (btnContinue) {
+      btnContinue.onclick = () => {
+        Audio.playBubble();
+        this.renderMissionSelect();
+        this.setPhase(GamePhase.MISSION_SELECT);
+      };
+    }
+
+    const btnQuiz = document.getElementById("btn-success-quiz");
+    if (btnQuiz) {
+      btnQuiz.onclick = () => {
+        Audio.playBubble();
+        this.startQuiz();
+      };
+    }
+  }
+
+  // 8. Eco Quiz Challenge
+  private startQuiz() {
+    this.quizQuestions = [...ECO_QUIZ_QUESTIONS];
+    this.currentQuizIndex = 0;
+    this.quizCorrectCount = 0;
+    this.renderQuizQuestion();
+    this.setPhase(GamePhase.ECO_QUIZ);
+  }
+
+  private renderQuizQuestion() {
+    if (this.currentQuizIndex >= this.quizQuestions.length) {
+      this.finishQuiz();
+      return;
+    }
+
+    const q = this.quizQuestions[this.currentQuizIndex];
+    const qIndexEl = document.getElementById("quiz-step-index");
+    const animalIconEl = document.getElementById("quiz-animal-icon");
+    const questionTextEl = document.getElementById("quiz-question-text");
+    const optionsContainerEl = document.getElementById("quiz-options-container");
+    const explanationEl = document.getElementById("quiz-explanation-box");
+
+    if (qIndexEl) qIndexEl.textContent = `문제 ${this.currentQuizIndex + 1} / ${this.quizQuestions.length}`;
+    if (animalIconEl) animalIconEl.textContent = q.animalIcon;
+    if (questionTextEl) questionTextEl.textContent = q.question;
+    if (explanationEl) explanationEl.classList.add("hidden");
+
+    if (!optionsContainerEl) return;
+    optionsContainerEl.innerHTML = "";
+
+    q.options.forEach((opt, idx) => {
+      const btn = document.createElement("button");
+      btn.className = "w-full text-left p-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-white font-semibold text-sm transition-all";
+      btn.innerHTML = `<span class="inline-block w-6 h-6 rounded-full bg-slate-800 text-center leading-6 text-xs text-amber-400 mr-2">${idx + 1}</span> ${opt}`;
+
+      btn.addEventListener("click", () => {
+        // Disable all buttons
+        const allBtns = optionsContainerEl.querySelectorAll("button");
+        allBtns.forEach((b) => ((b as HTMLButtonElement).disabled = true));
+
+        if (idx === q.correctIndex) {
+          btn.className = "w-full text-left p-4 rounded-xl bg-emerald-900/80 border border-emerald-500 text-emerald-200 font-bold text-sm";
+          Audio.playSuccess();
+          this.quizCorrectCount++;
+          this.userStats.totalStars += q.rewardStars;
+          this.saveStats();
+        } else {
+          btn.className = "w-full text-left p-4 rounded-xl bg-rose-950/80 border border-rose-600 text-rose-200 font-bold text-sm";
+          Audio.playWrong();
+          const correctBtn = allBtns[q.correctIndex];
+          if (correctBtn) {
+            correctBtn.className = "w-full text-left p-4 rounded-xl bg-emerald-900/80 border border-emerald-500 text-emerald-200 font-bold text-sm";
+          }
+        }
+
+        // Show explanation
+        if (explanationEl) {
+          explanationEl.textContent = `💡 해설: ${q.explanation}`;
+          explanationEl.classList.remove("hidden");
+        }
+
+        setTimeout(() => {
+          this.currentQuizIndex++;
+          this.renderQuizQuestion();
+        }, 2200);
+      });
+
+      optionsContainerEl.appendChild(btn);
+    });
+  }
+
+  private finishQuiz() {
+    Audio.playCelebration();
+    const listEl = document.getElementById("quiz-options-container");
+    const questionTextEl = document.getElementById("quiz-question-text");
+    const qIndexEl = document.getElementById("quiz-step-index");
+    const explanationEl = document.getElementById("quiz-explanation-box");
+
+    if (qIndexEl) qIndexEl.textContent = "🏆 퀴즈 챌린지 완료!";
+    if (questionTextEl) questionTextEl.textContent = `총 ${this.quizQuestions.length}문제 중 ${this.quizCorrectCount}문제를 맞혔습니다!`;
+    if (explanationEl) explanationEl.classList.add("hidden");
+
+    if (listEl) {
+      listEl.innerHTML = `
+        <div class="text-center py-6">
+          <div class="text-6xl mb-4">🏅</div>
+          <h4 class="text-xl font-bold text-amber-300 mb-2">옥토 해양 생태 박사 인증 완료!</h4>
+          <p class="text-sm text-slate-300 mb-6">퀴즈 보상으로 별 ⭐️을 획득하였습니다. 탐험선 업그레이드에 사용하세요!</p>
+          <button id="btn-quiz-done" class="px-6 py-3 rounded-xl font-extrabold bg-amber-400 hover:bg-amber-300 text-slate-950">
+            미션 본부로 돌아가기
+          </button>
+        </div>
+      `;
+      document.getElementById("btn-quiz-done")?.addEventListener("click", () => {
+        Audio.playBubble();
+        this.renderMissionSelect();
+        this.setPhase(GamePhase.MISSION_SELECT);
+      });
+    }
+  }
+
+  // 9. Logbook Screen
+  private renderLogbook() {
+    const badgeContainer = document.getElementById("logbook-badge-container");
+    const animalCountEl = document.getElementById("logbook-total-animals");
+    const restorationBarEl = document.getElementById("logbook-restoration-bar");
+    const restorationTextEl = document.getElementById("logbook-restoration-text");
+
+    if (animalCountEl) animalCountEl.textContent = `${this.userStats.totalRescuedAnimals}마리`;
+    if (restorationTextEl) restorationTextEl.textContent = `${this.userStats.ecosystemRestoration}%`;
+    if (restorationBarEl) restorationBarEl.style.width = `${this.userStats.ecosystemRestoration}%`;
+
+    if (!badgeContainer) return;
+    badgeContainer.innerHTML = "";
+
+    MISSIONS.forEach((m) => {
+      const hasBadge = this.userStats.collectedBadges.includes(m.badge);
+      const badgeBox = document.createElement("div");
+      badgeBox.className = `p-4 rounded-xl border text-center transition-all ${
+        hasBadge
+          ? "bg-slate-900/90 border-amber-400/80 shadow-lg shadow-amber-500/10"
+          : "bg-slate-950/40 border-slate-800 opacity-50"
+      }`;
+
+      badgeBox.innerHTML = `
+        <div class="text-4xl mb-2">${hasBadge ? "🎖️" : "🔒"}</div>
+        <h4 class="text-sm font-bold text-white mb-1">${m.badge}</h4>
+        <p class="text-xs text-slate-400">${hasBadge ? `${m.animalName} 구조 완료` : "미션 미완료"}</p>
+      `;
+
+      badgeContainer.appendChild(badgeBox);
+    });
   }
 }

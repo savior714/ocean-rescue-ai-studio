@@ -1025,6 +1025,43 @@ class SoundEngine {
     return false;
   }
 
+  public playLaunch() {
+    this.playOctoAlert();
+  }
+
+  public playBoost() {
+    this.playBoostRing();
+  }
+
+  public playCollision() {
+    this.playHit();
+  }
+
+  public playLaserCut() {
+    this.playStarCollect();
+  }
+
+  public playHeartbeat() {
+    const ctx = this.initCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(65, now);
+    osc.frequency.exponentialRampToValueAtTime(35, now + 0.15);
+    gain.gain.setValueAtTime(this.soundVolume * 0.45, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain);
+    gain.connect(this.getDestination());
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }
+
+  public playCelebration() {
+    this.playSuccess();
+  }
+
   public testSoundVolume() {
     this.playStarCollect();
   }

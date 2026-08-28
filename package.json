@@ -3,11 +3,23 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Disposable Google AI Studio handoff shell for AidenGame Ocean Rescue.",
+  "description": "Google AI Studio handoff shell for AidenGame Ocean Rescue.",
+  "workspaces": [
+    "workspace"
+  ],
   "scripts": {
     "dev": "node bootstrap.mjs",
     "build": "node build.mjs",
-    "lint": "node -e \"process.exit(0)\""
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pixi.js": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0"
   },
   "engines": {
     "node": ">=20"
