@@ -63,10 +63,14 @@ export class TravelEngine {
 
   // Discovery Sequence State
   public inDiscoveryZone = false;
+  public isScanEligible = false;
   public isScanning = false;
   public scanProgress = 0;
   public isReadyForRescue = false;
+  private settleDwellTimer = 0;
   private discoveryAnnounced = false;
+  private settledAnnounced = false;
+  private startledAnnounceCooldown = 0;
 
   // Input
   private isPointerDown = false;
@@ -122,10 +126,14 @@ export class TravelEngine {
     this.totalElapsedTime = 0;
 
     this.inDiscoveryZone = false;
+    this.isScanEligible = false;
     this.isScanning = false;
     this.scanProgress = 0;
     this.isReadyForRescue = false;
+    this.settleDwellTimer = 0;
     this.discoveryAnnounced = false;
+    this.settledAnnounced = false;
+    this.startledAnnounceCooldown = 0;
 
     RescueReadiness.reset();
 
@@ -212,19 +220,32 @@ export class TravelEngine {
       this.targetY = Math.max(80, Math.min(this.worldHeight - 80, this.pointerScreenY));
     };
 
+    const isPointerOverScanButton = (screenX: number, screenY: number): boolean => {
+      // Touch-friendly bounding box for the visible SCAN button (centered at 640, 597)
+      return screenX >= 460 && screenX <= 820 && screenY >= 540 && screenY <= 655;
+    };
+
     this.travelCanvas.addEventListener("pointerdown", (e) => {
+      if (!this.travelCanvas) return;
+      const rect = this.travelCanvas.getBoundingClientRect();
+      const scaleX = this.travelCanvas.width / rect.width;
+      const scaleY = this.travelCanvas.height / rect.height;
+      const screenX = (e.clientX - rect.left) * scaleX;
+      const screenY = (e.clientY - rect.top) * scaleY;
+
+      // Check if clicking visible contextual SCAN button
+      if (this.isScanEligible && isPointerOverScanButton(screenX, screenY)) {
+        if (!this.isScanning && !this.isReadyForRescue) {
+          this.triggerScan();
+        }
+        // Explicitly return without altering GUP steering target or starting pointer drag
+        return;
+      }
+
+      // Standard Water Drag / Steering Input
       this.isPointerDown = true;
       updateTarget(e.clientX, e.clientY);
       Audio.playBubble();
-
-      // If in discovery zone and clicked near turtle or scan prompt, trigger scan
-      if (this.inDiscoveryZone && !this.isScanning && !this.isReadyForRescue) {
-        const screenX = (e.clientX - (this.travelCanvas?.getBoundingClientRect().left || 0)) * ((this.travelCanvas?.width || 1280) / (this.travelCanvas?.getBoundingClientRect().width || 1280));
-        const screenY = (e.clientY - (this.travelCanvas?.getBoundingClientRect().top || 0)) * ((this.travelCanvas?.height || 720) / (this.travelCanvas?.getBoundingClientRect().height || 720));
-        if (screenY > 520 || (screenX > 500 && screenX < 900 && screenY > 200 && screenY < 600)) {
-          this.triggerScan();
-        }
-      }
     });
 
     window.addEventListener("pointermove", (e) => {
@@ -243,10 +264,10 @@ export class TravelEngine {
       }
     }, { passive: true });
 
-    // Keyboard support: Space or S key triggers Scan when in discovery zone
+    // Keyboard support: Space or S key triggers Scan ONLY when scan is eligible
     this.keydownHandler = (e: KeyboardEvent) => {
       if (e.code === "Space" || e.code === "KeyS" || e.code === "Enter") {
-        if (this.inDiscoveryZone && !this.isScanning && !this.isReadyForRescue) {
+        if (this.isScanEligible && !this.isScanning && !this.isReadyForRescue) {
           e.preventDefault();
           this.triggerScan();
         }
@@ -263,16 +284,16 @@ export class TravelEngine {
   }
 
   /**
-   * Contextual Scan Action Trigger
+   * Contextual Scan Action Trigger (Available only when scan conditions are stably satisfied)
    */
   public triggerScan(): void {
-    if (this.isScanning || this.isReadyForRescue) return;
+    if (!this.isScanEligible || this.isScanning || this.isReadyForRescue) return;
 
     this.isScanning = true;
     this.scanProgress = 0;
     Audio.playSonarPing();
     Audio.playBoostRing();
-    this.showRadio(`🔍 ${this.mission.companion}: 정밀 소나 스캔 가동! 그물 결속 및 구속 부위를 분석합니다...`, 3.5);
+    this.showRadio(`🔍 ${this.mission.companion}: 소나 스캔 가동! 그물 위치를 분석합니다...`, 3.5);
   }
 
   public async start(): Promise<void> {
@@ -304,14 +325,52 @@ export class TravelEngine {
     if (this.radioTimer > 0) {
       this.radioTimer -= dt;
     }
+    if (this.startledAnnounceCooldown > 0) {
+      this.startledAnnounceCooldown -= dt;
+    }
 
-    // 1. Discovery Zone Entry Trigger
-    if (this.subX >= 2000) {
+    // 1. Discovery Zone Entry Trigger & Proximity-driven Reaction Logic
+    if (this.subX >= 1950) {
       this.inDiscoveryZone = true;
       if (!this.discoveryAnnounced) {
         this.discoveryAnnounced = true;
         Audio.playSonarPing();
-        this.showRadio(`🐢 ${this.mission.companion}: 저 앞 산호 바위 틈에 바다거북이 보입니다! 조심스럽게 접근하세요!`, 4.0);
+        this.showRadio(`🐢 ${this.mission.companion}: 저 앞 산호초에 바다거북이 있어요! 조심스럽게 다가가 보세요.`, 4.0);
+      }
+
+      // Proximity, Speed, and Settled Reaction Evaluation
+      const turtleWorldX = 2450;
+      const turtleWorldY = 380;
+      const distToTurtle = Math.hypot(this.subX - turtleWorldX, this.subY - turtleWorldY);
+      const isClose = distToTurtle <= 380;
+      const isSpeedCalm = Math.abs(this.currentSpeed) < 140 && Math.abs(this.subVy) < 150;
+      const turtleState = this.renderer.turtleActor.currentState;
+      const isStartled = turtleState === TurtleState.STARTLED_GUARDED;
+      const isTurtleCalm = (turtleState === TurtleState.WATCHFUL_SETTLING || turtleState === TurtleState.BEING_SCANNED);
+
+      // Startled Radio Guidance (with cooldown, non-punitive)
+      if (isStartled && this.startledAnnounceCooldown <= 0 && !this.isScanning && !this.isReadyForRescue) {
+        this.startledAnnounceCooldown = 4.5;
+        this.showRadio(`⚠️ ${this.mission.companion}: 거북이가 깜짝 놀랐어요! 천천히 움직여 안정을 찾게 해주세요.`, 3.5);
+      }
+
+      // Dwell Timer & Scan Eligibility State Machine
+      if (isClose && isSpeedCalm && isTurtleCalm && !isStartled) {
+        this.settleDwellTimer = Math.min(1.0, this.settleDwellTimer + dt * 2.2);
+      } else if (isStartled) {
+        this.settleDwellTimer = 0;
+      } else {
+        this.settleDwellTimer = Math.max(0, this.settleDwellTimer - dt * 2.5);
+      }
+
+      const wasEligible = this.isScanEligible;
+      this.isScanEligible = (this.settleDwellTimer >= 0.8) && !this.isScanning && !this.isReadyForRescue;
+
+      // First-time settled announcement
+      if (this.isScanEligible && !wasEligible && !this.settledAnnounced) {
+        this.settledAnnounced = true;
+        Audio.playSonarPing();
+        this.showRadio(`🔍 ${this.mission.companion}: 거북이가 안정을 찾았어요! [그물 스캔하기]를 눌러 그물을 확인하세요.`, 4.0);
       }
     }
 
@@ -323,7 +382,7 @@ export class TravelEngine {
         this.isScanning = false;
         this.isReadyForRescue = true;
         Audio.playSuccess();
-        this.showRadio(`✨ ${this.mission.companion}: 분석 완료! 3개의 핵심 절단 부위가 파악되었습니다. 구조 준비 완료!`, 5.0);
+        this.showRadio(`✨ ${this.mission.companion}: 스캔 완료! 거북이를 풀어줄 준비가 되었어요!`, 5.0);
       }
     }
 
@@ -561,7 +620,7 @@ export class TravelEngine {
       time: this.totalElapsedTime,
       // Discovery
       inDiscoveryZone: this.inDiscoveryZone,
-      canScan: this.inDiscoveryZone && !this.isScanning && !this.isReadyForRescue,
+      canScan: this.isScanEligible,
       isScanning: this.isScanning,
       scanProgress: this.scanProgress,
       isReadyForRescue: this.isReadyForRescue,

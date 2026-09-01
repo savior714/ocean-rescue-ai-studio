@@ -195,7 +195,7 @@ export class PixiTravelRenderer {
       style: new TextStyle({ fontSize: 26 })
     });
     this.hudScanBtnText = new Text({
-      text: "SCAN / 정밀 스캔 분석",
+      text: "그물 스캔하기 (SCAN)",
       style: new TextStyle({
         fontFamily: "system-ui, sans-serif",
         fontSize: 16,
@@ -207,16 +207,16 @@ export class PixiTravelRenderer {
     // Ready Banner
     this.hudReadyBanner = new Container();
     this.hudReadyText = new Text({
-      text: "🟢 READY FOR RESCUE",
+      text: "🟢 구조 준비 완료! (Ready to Rescue)",
       style: new TextStyle({
         fontFamily: "system-ui, sans-serif",
-        fontSize: 20,
+        fontSize: 19,
         fontWeight: "bold",
         fill: "#00e676"
       })
     });
     this.hudReadySubText = new Text({
-      text: "3개소 그물 결속 부위 분석 완료 — 구조 준비 완료",
+      text: "바다거북을 묶고 있는 3곳의 그물을 찾았어요!",
       style: new TextStyle({
         fontFamily: "system-ui, sans-serif",
         fontSize: 13,
@@ -412,7 +412,7 @@ export class PixiTravelRenderer {
     this.renderEffects(snapshot);
 
     // 8. HUD Update
-    this.updateHud(snapshot);
+    this.updateHud(snapshot, dt);
   }
 
   private renderFarBackground(snapshot: TravelRenderSnapshot): void {
@@ -619,13 +619,12 @@ export class PixiTravelRenderer {
     }
   }
 
-  private updateHud(snapshot: TravelRenderSnapshot): void {
+  private updateHud(snapshot: TravelRenderSnapshot, dt: number): void {
     const {
       subX,
       worldLength,
       radioMessage,
       radioTimer,
-      inDiscoveryZone,
       canScan,
       isScanning,
       isReadyForRescue,
@@ -655,33 +654,33 @@ export class PixiTravelRenderer {
       this.hudRadioContainer.visible = false;
     }
 
-    // Contextual SCAN Button
-    if (inDiscoveryZone && !isReadyForRescue) {
-      this.hudScanBtnContainer.visible = true;
-      const pulse = 1.0 + Math.sin(time * 6) * 0.04;
+    // Contextual SCAN Button (Smooth alpha & pulse transition)
+    const targetScanAlpha = (canScan || isScanning) && !isReadyForRescue ? 1.0 : 0.0;
+    this.hudScanBtnContainer.alpha += (targetScanAlpha - this.hudScanBtnContainer.alpha) * Math.min(1.0, dt * 6.0);
+    this.hudScanBtnContainer.visible = this.hudScanBtnContainer.alpha > 0.01;
+    this.hudScanBtnContainer.eventMode = this.hudScanBtnContainer.alpha > 0.5 ? "static" : "none";
+
+    if (this.hudScanBtnContainer.visible) {
+      const pulse = 1.0 + (canScan && !isScanning ? Math.sin(time * 5) * 0.03 : 0);
       this.hudScanBtnBg.clear();
       this.hudScanBtnBg.roundRect(0, 0, 300, 54, 18);
 
       if (isScanning) {
         this.hudScanBtnBg.fill({ color: 0x00838f, alpha: 0.95 });
         this.hudScanBtnBg.stroke({ color: 0x80deea, width: 3 });
-        this.hudScanBtnText.text = "스캔 중... (Analyzing...)";
+        this.hudScanBtnText.text = "그물 분석 중... (Scanning...)";
       } else {
         this.hudScanBtnBg.fill({ color: 0x006064, alpha: 0.92 });
         this.hudScanBtnBg.stroke({ color: 0x00e5ff, width: 2.5 });
-        this.hudScanBtnText.text = "SCAN / 정밀 스캔 분석";
+        this.hudScanBtnText.text = "그물 스캔하기 (SCAN)";
       }
       this.hudScanBtnContainer.scale.set(pulse);
-    } else {
-      this.hudScanBtnContainer.visible = false;
     }
 
-    // Ready for Rescue Banner
-    if (isReadyForRescue) {
-      this.hudReadyBanner.visible = true;
-    } else {
-      this.hudReadyBanner.visible = false;
-    }
+    // Ready for Rescue Banner (Smooth alpha transition)
+    const targetReadyAlpha = isReadyForRescue ? 1.0 : 0.0;
+    this.hudReadyBanner.alpha += (targetReadyAlpha - this.hudReadyBanner.alpha) * Math.min(1.0, dt * 5.0);
+    this.hudReadyBanner.visible = this.hudReadyBanner.alpha > 0.01;
   }
 
   public destroy(): void {

@@ -169,9 +169,9 @@ export class TurtleActor extends Container {
       this.currentState = TurtleState.READY_FOR_RESCUE;
     } else if (isScanning) {
       this.currentState = TurtleState.BEING_SCANNED;
-    } else if (distToGup < 340 && gupSpeed > 260) {
-      // Rapid / aggressive approach triggers startled guarded state
-      this.startledTimer = 1.8;
+    } else if (distToGup < 360 && gupSpeed > 220) {
+      // Rapid approach triggers startled guarded state
+      this.startledTimer = 1.6;
       this.currentState = TurtleState.STARTLED_GUARDED;
     } else if (this.startledTimer > 0) {
       this.startledTimer -= dt;
