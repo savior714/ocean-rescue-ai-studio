@@ -29,8 +29,7 @@ export const MISSIONS: MissionData[] = [
       "바다거북은 지구상에서 1억 년 이상 살아온 고대 생물입니다.",
       "눈가에 눈물처럼 보이는 소금 분비샘이 있어 바닷물의 염분을 배출해요.",
       "자신이 태어난 모래사장으로 수천 킬로미터를 헤엄쳐 돌아가 알을 낳습니다."
-    ],
-    badge: "산호초 거북 수호 훈장"
+    ]
   },
   {
     id: "crab",
@@ -60,8 +59,7 @@ export const MISSIONS: MissionData[] = [
       "꽃게는 위협을 느끼면 옆으로 아주 빠르게 질주하며 모래 속으로 3초 만에 숨어요.",
       "단단한 껍질이 자라지 않아서 성장할 때마다 탈피(허물 벗기)를 반복합니다.",
       "앞 집게발의 힘은 자기 몸무게의 30배가 넘는 물체를 들어 올릴 수 있어요."
-    ],
-    badge: "다시마 숲 청소부 수호 훈장"
+    ]
   },
   {
     id: "young-whale",
@@ -91,8 +89,7 @@ export const MISSIONS: MissionData[] = [
       "혹등고래의 꼬리 무늬는 인간의 지문처럼 개체마다 모두 다릅니다.",
       "새끼는 태어나자마자 엄마 고래의 도움을 받아 수면 위로 첫 숨을 쉬러 올라갑니다.",
       "하루에 최대 1.5톤의 크릴새우와 작은 물고기를 섭취합니다."
-    ],
-    badge: "심해 해구 고래 수호 훈장"
+    ]
   }
 ];
 
@@ -105,7 +102,6 @@ export const GUPS: GupData[] = [
     accentColor: "#ff9800",
     type: "balanced",
     icon: "🟡",
-    baseSpeedMultiplier: 1.0,
     armorLabel: "표준 기동형 선체",
     specialAbility: "생체 발광 탐조등 & 정밀 레이저"
   },
@@ -117,7 +113,6 @@ export const GUPS: GupData[] = [
     accentColor: "#d84315",
     type: "speed",
     icon: "🦈",
-    baseSpeedMultiplier: 1.25,
     armorLabel: "고속 추격형 선체",
     specialAbility: "터보 부스트 가속 & 날렵한 선회력"
   },
@@ -129,7 +124,6 @@ export const GUPS: GupData[] = [
     accentColor: "#01579b",
     type: "heavy",
     icon: "🐳",
-    baseSpeedMultiplier: 0.9,
     armorLabel: "초강력 강화 장갑",
     specialAbility: "고출력 마그넷 견인 & 중장비 크레인"
   }

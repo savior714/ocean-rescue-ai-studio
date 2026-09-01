@@ -28,7 +28,6 @@ export interface MissionData {
   targetLabel: string;
   dialogues: string[];
   ecologyFact: string;
-  badge: string;
   funTrivia: string[];
   depthMeters: number;
   careTreatName: string;
@@ -43,7 +42,6 @@ export interface GupData {
   accentColor: string;
   type: "speed" | "balanced" | "heavy" | "claw" | "medical";
   icon: string;
-  baseSpeedMultiplier: number;
   armorLabel: string;
   specialAbility: string;
 }
@@ -74,6 +72,7 @@ export interface BoostRing {
   worldX: number;
   y: number;
   passed: boolean;
+  active?: boolean;
   radius: number;
 }
 
@@ -93,6 +92,7 @@ export interface FishBoid {
   vy: number;
   size: number;
   color: string;
+  scale?: number;
   tailPhase: number;
 }
 
@@ -101,6 +101,7 @@ export interface JellyfishEntity {
   y: number;
   size: number;
   color: string;
+  scale?: number;
   pulseOffset: number;
   speedY: number;
 }
