@@ -1,6 +1,6 @@
 {
-  "name": "Space Explorer 3D",
-  "description": "Tactile 3D Solar System exploration with smooth planet fly-to camera, Moon & Saturn rings, astronomical time controls, and kid-friendly discoveries.",
+  "name": "Ocean Rescue",
+  "description": "2D Hybrid Animated Ocean World and mobile rescue adventure. Pilot GUP submarines through dynamic parallax depths, navigate underwater currents, and rescue endangered marine creatures.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

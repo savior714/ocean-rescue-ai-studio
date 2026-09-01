@@ -1,8 +1,8 @@
-import { SpaceExplorerApp } from "./space-explorer-app";
+import { OceanRescueGame } from "./game";
 
 function init() {
-  const app = new SpaceExplorerApp();
-  app.boot();
+  const game = new OceanRescueGame();
+  game.boot();
 }
 
 if (document.readyState === "loading") {
@@ -10,3 +10,4 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
