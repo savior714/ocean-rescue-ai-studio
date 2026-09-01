@@ -10,6 +10,7 @@ import {
 import { Audio } from "./audio";
 import { RescueReadiness, ReadinessSnapshot } from "./travel/readiness";
 import { PixiTravelRenderer, TravelRenderSnapshot } from "./travel/pixi-travel-renderer";
+import { TurtleState } from "./discovery/turtle-actor";
 
 interface BubbleParticle {
   x: number;
@@ -41,7 +42,7 @@ export class TravelEngine {
   private renderer: PixiTravelRenderer;
 
   // Level & World Dimension
-  public worldLength = 2200; // ~45s of dynamic travel
+  public worldLength = 2600;
   public worldHeight = 720;
   public cameraX = 0;
   public cameraY = 0;
@@ -60,10 +61,18 @@ export class TravelEngine {
   public collisionShakeAngle = 0;
   public inCurrent = false;
 
+  // Discovery Sequence State
+  public inDiscoveryZone = false;
+  public isScanning = false;
+  public scanProgress = 0;
+  public isReadyForRescue = false;
+  private discoveryAnnounced = false;
+
   // Input
   private isPointerDown = false;
   private pointerScreenX = 0;
   private pointerScreenY = 0;
+  private keydownHandler?: (e: KeyboardEvent) => void;
 
   // Parallax Planes & Environment Entities
   private fishSchool: FishBoid[] = [];
@@ -96,7 +105,7 @@ export class TravelEngine {
     this.gup = gup;
     this.onCompleteTravel = onCompleteTravel;
 
-    this.renderer = new PixiTravelRenderer(mission, gup);
+    this.renderer = new PixiTravelRenderer(mission, gup, () => this.triggerScan());
     this.initWorld();
   }
 
@@ -112,13 +121,19 @@ export class TravelEngine {
     this.isBoosting = false;
     this.totalElapsedTime = 0;
 
+    this.inDiscoveryZone = false;
+    this.isScanning = false;
+    this.scanProgress = 0;
+    this.isReadyForRescue = false;
+    this.discoveryAnnounced = false;
+
     RescueReadiness.reset();
 
     // 1. Fish School (Midground Parallax)
     this.fishSchool = [];
     for (let i = 0; i < 22; i++) {
       this.fishSchool.push({
-        x: 400 + Math.random() * 1600,
+        x: 400 + Math.random() * 1800,
         y: 120 + Math.random() * 480,
         vx: 80 + Math.random() * 40,
         vy: (Math.random() - 0.5) * 15,
@@ -150,7 +165,7 @@ export class TravelEngine {
       { id: "c3", worldX: 1650, y: 260, width: 320, height: 110, flowSpeed: 160 }
     ];
 
-    // 4. Boost Propulsion Rings (Sensory boost, not score collectible)
+    // 4. Boost Propulsion Rings (Sensory boost rings placed along the main travel canal)
     this.boostRings = [
       { id: "b1", worldX: 360, y: 340, active: true, passed: false, radius: 46 },
       { id: "b2", worldX: 850, y: 240, active: true, passed: false, radius: 46 },
@@ -194,13 +209,22 @@ export class TravelEngine {
       const scaleY = this.travelCanvas.height / rect.height;
       this.pointerScreenX = (clientX - rect.left) * (this.travelCanvas.width / rect.width);
       this.pointerScreenY = (clientY - rect.top) * scaleY;
-      this.targetY = Math.max(60, Math.min(this.worldHeight - 60, this.pointerScreenY));
+      this.targetY = Math.max(80, Math.min(this.worldHeight - 80, this.pointerScreenY));
     };
 
     this.travelCanvas.addEventListener("pointerdown", (e) => {
       this.isPointerDown = true;
       updateTarget(e.clientX, e.clientY);
       Audio.playBubble();
+
+      // If in discovery zone and clicked near turtle or scan prompt, trigger scan
+      if (this.inDiscoveryZone && !this.isScanning && !this.isReadyForRescue) {
+        const screenX = (e.clientX - (this.travelCanvas?.getBoundingClientRect().left || 0)) * ((this.travelCanvas?.width || 1280) / (this.travelCanvas?.getBoundingClientRect().width || 1280));
+        const screenY = (e.clientY - (this.travelCanvas?.getBoundingClientRect().top || 0)) * ((this.travelCanvas?.height || 720) / (this.travelCanvas?.getBoundingClientRect().height || 720));
+        if (screenY > 520 || (screenX > 500 && screenX < 900 && screenY > 200 && screenY < 600)) {
+          this.triggerScan();
+        }
+      }
     });
 
     window.addEventListener("pointermove", (e) => {
@@ -219,12 +243,36 @@ export class TravelEngine {
       }
     }, { passive: true });
 
+    // Keyboard support: Space or S key triggers Scan when in discovery zone
+    this.keydownHandler = (e: KeyboardEvent) => {
+      if (e.code === "Space" || e.code === "KeyS" || e.code === "Enter") {
+        if (this.inDiscoveryZone && !this.isScanning && !this.isReadyForRescue) {
+          e.preventDefault();
+          this.triggerScan();
+        }
+      }
+    };
+    window.addEventListener("keydown", this.keydownHandler);
+
     return travelCanvas;
   }
 
   public showRadio(msg: string, duration = 3.0) {
     this.radioMessage = msg;
     this.radioTimer = duration;
+  }
+
+  /**
+   * Contextual Scan Action Trigger
+   */
+  public triggerScan(): void {
+    if (this.isScanning || this.isReadyForRescue) return;
+
+    this.isScanning = true;
+    this.scanProgress = 0;
+    Audio.playSonarPing();
+    Audio.playBoostRing();
+    this.showRadio(`🔍 ${this.mission.companion}: 정밀 소나 스캔 가동! 그물 결속 및 구속 부위를 분석합니다...`, 3.5);
   }
 
   public async start(): Promise<void> {
@@ -257,19 +305,41 @@ export class TravelEngine {
       this.radioTimer -= dt;
     }
 
-    // 1. Steering & Vertical Velocity Easing
+    // 1. Discovery Zone Entry Trigger
+    if (this.subX >= 2000) {
+      this.inDiscoveryZone = true;
+      if (!this.discoveryAnnounced) {
+        this.discoveryAnnounced = true;
+        Audio.playSonarPing();
+        this.showRadio(`🐢 ${this.mission.companion}: 저 앞 산호 바위 틈에 바다거북이 보입니다! 조심스럽게 접근하세요!`, 4.0);
+      }
+    }
+
+    // 2. Scan Progress State Machine
+    if (this.isScanning) {
+      this.scanProgress += dt / 3.0;
+      if (this.scanProgress >= 1.0) {
+        this.scanProgress = 1.0;
+        this.isScanning = false;
+        this.isReadyForRescue = true;
+        Audio.playSuccess();
+        this.showRadio(`✨ ${this.mission.companion}: 분석 완료! 3개의 핵심 절단 부위가 파악되었습니다. 구조 준비 완료!`, 5.0);
+      }
+    }
+
+    // 3. Steering & Vertical Velocity Easing
     const dy = this.targetY - this.subY;
-    const accelY = dy * 6.5;
+    const accelY = dy * (this.inDiscoveryZone ? 5.0 : 6.5);
     this.subVy += accelY * dt;
     this.subVy *= 0.90; // Hydrodynamic drag damping
     this.subY += this.subVy * dt;
-    this.subY = Math.max(60, Math.min(this.worldHeight - 60, this.subY));
+    this.subY = Math.max(80, Math.min(this.worldHeight - 80, this.subY));
 
     // Pitch Angle based on hydrodynamic vertical climb/dive
     const targetPitch = Math.max(-0.42, Math.min(0.42, (this.subVy / 220) * 0.42));
     this.subPitch += (targetPitch - this.subPitch) * 0.16;
 
-    // 2. Collision Wobble Decay
+    // 4. Collision Wobble Decay
     if (this.collisionWobble > 0) {
       this.collisionWobble = Math.max(0, this.collisionWobble - dt * 2.2);
       this.collisionShakeAngle = Math.sin(this.totalElapsedTime * 35) * 0.08;
@@ -277,7 +347,7 @@ export class TravelEngine {
       this.collisionShakeAngle = 0;
     }
 
-    // 3. Boost Countdown
+    // 5. Boost Countdown
     if (this.boostTimer > 0) {
       this.boostTimer -= dt;
       this.isBoosting = true;
@@ -285,7 +355,7 @@ export class TravelEngine {
       this.isBoosting = false;
     }
 
-    // 4. Current Stream Detection
+    // 6. Current Stream Detection
     let insideCurrent = false;
     for (const stream of this.currentStreams) {
       if (
@@ -303,7 +373,7 @@ export class TravelEngine {
     }
     this.inCurrent = insideCurrent;
 
-    // 5. Horizontal Cruising Speed Calculation
+    // 7. Horizontal Cruising Speed & Discovery Approach Easing
     let targetSpeed = 160;
     if (this.isBoosting) {
       targetSpeed = 380;
@@ -311,12 +381,24 @@ export class TravelEngine {
       targetSpeed = 260;
     }
     if (this.collisionWobble > 0.4) {
-      targetSpeed *= 0.65; // temporary gentle slowdown
+      targetSpeed *= 0.65;
     }
+
+    // In Discovery Zone, smoothly ease forward speed so GUP hovers in optimal rescue position (x: 2180 ~ 2280)
+    if (this.inDiscoveryZone) {
+      const approachDistance = 2240 - this.subX;
+      if (approachDistance > 0) {
+        targetSpeed = Math.max(30, Math.min(targetSpeed, approachDistance * 1.2));
+      } else {
+        targetSpeed = Math.max(-20, approachDistance * 1.5);
+      }
+    }
+
     this.currentSpeed += (targetSpeed - this.currentSpeed) * 0.14;
     this.subX += this.currentSpeed * dt;
+    this.subVx = this.currentSpeed;
 
-    // 6. Boost Ring Triggering
+    // 8. Boost Ring Triggering
     for (const ring of this.boostRings) {
       if (ring.active) {
         const dist = Math.hypot(this.subX - ring.worldX, this.subY - ring.y);
@@ -341,7 +423,7 @@ export class TravelEngine {
       }
     }
 
-    // 7. Non-punitive Obstacle Collisions
+    // 9. Non-punitive Obstacle Collisions
     for (const obs of this.obstacles) {
       const gupLeft = this.subX - 45;
       const gupRight = this.subX + 45;
@@ -364,14 +446,12 @@ export class TravelEngine {
           Audio.playBump();
           RescueReadiness.onCollision();
 
-          // Push back gently
           if (this.subY < obs.y + obs.height / 2) {
             this.subVy = -180;
           } else {
             this.subVy = 180;
           }
 
-          // Sparks
           for (let s = 0; s < 6; s++) {
             this.sparkParticles.push({
               x: this.subX,
@@ -386,7 +466,7 @@ export class TravelEngine {
       }
     }
 
-    // 8. Rescue Readiness Progression & Milestone Announcements
+    // 10. Rescue Readiness Progression & Milestone Announcements
     RescueReadiness.step(dt * 1000, true, this.inCurrent);
     const readinessSnap = RescueReadiness.getSnapshot();
 
@@ -406,12 +486,15 @@ export class TravelEngine {
       this.showRadio(`🛠️ ${this.mission.companion}: 정밀 레이저 절단기(Cutter) 장착 완료! 곧 구조 지점에 도착합니다!`, 3.5);
     }
 
-    // 9. Camera Follow (Look-ahead presentation)
-    const targetCameraX = Math.max(0, this.subX - 260);
-    this.cameraX += (targetCameraX - this.cameraX) * 0.14;
+    // 11. Camera Follow & Cinematic Framing
+    let targetCameraX = Math.max(0, this.subX - 260);
+    if (this.inDiscoveryZone) {
+      // In discovery zone, lock into cinematic dual framing centered on both GUP and Sea Turtle
+      targetCameraX = Math.min(1860, Math.max(0, this.subX - 260));
+    }
+    this.cameraX += (targetCameraX - this.cameraX) * 0.12;
 
-    // 10. Update Particles & Marine Life
-    // Spawn bubbles periodically
+    // 12. Update Particles
     if (Math.random() < 0.35 || this.isBoosting) {
       this.bubbles.push({
         x: this.subX - 60,
@@ -445,16 +528,6 @@ export class TravelEngine {
         this.sparkParticles.splice(i, 1);
       }
     }
-
-    // 11. Destination Arrival Check
-    if (this.subX >= this.worldLength) {
-      this.isFinished = true;
-      Audio.playSuccess();
-      setTimeout(() => {
-        this.stop();
-        this.onCompleteTravel();
-      }, 1200);
-    }
   }
 
   /**
@@ -464,6 +537,7 @@ export class TravelEngine {
     const snapshot: TravelRenderSnapshot = {
       subX: this.subX,
       subY: this.subY,
+      subVx: this.subVx,
       subPitch: this.subPitch,
       speedRatio: this.currentSpeed / 160,
       isBoosting: this.isBoosting,
@@ -484,7 +558,14 @@ export class TravelEngine {
       readiness: RescueReadiness.getSnapshot(),
       radioMessage: this.radioMessage,
       radioTimer: this.radioTimer,
-      time: this.totalElapsedTime
+      time: this.totalElapsedTime,
+      // Discovery
+      inDiscoveryZone: this.inDiscoveryZone,
+      canScan: this.inDiscoveryZone && !this.isScanning && !this.isReadyForRescue,
+      isScanning: this.isScanning,
+      scanProgress: this.scanProgress,
+      isReadyForRescue: this.isReadyForRescue,
+      turtleReactionState: this.renderer.turtleActor.currentState
     };
 
     this.renderer.render(snapshot, dt);
@@ -495,6 +576,10 @@ export class TravelEngine {
       cancelAnimationFrame(this.animId);
       this.animId = null;
     }
+    if (this.keydownHandler) {
+      window.removeEventListener("keydown", this.keydownHandler);
+      this.keydownHandler = undefined;
+    }
     this.renderer.destroy();
     if (this.travelCanvas && this.travelCanvas.parentElement) {
       this.travelCanvas.parentElement.removeChild(this.travelCanvas);
@@ -502,3 +587,4 @@ export class TravelEngine {
     }
   }
 }
+

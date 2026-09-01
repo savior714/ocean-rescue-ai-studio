@@ -18,20 +18,22 @@ import {
 import { GupActor, GupPresentationState } from "./gup-actor";
 import { ProvisionalAssetFactory } from "./provisional-assets";
 import { ReadinessSnapshot } from "./readiness";
+import { TurtleActor, TurtleState, TurtlePresentationInput } from "../discovery/turtle-actor";
 
 /**
- * PIXI TRAVEL RENDERER
+ * PIXI TRAVEL RENDERER (Updated with Sea Turtle Discovery & Animal Reaction Slice)
  *
- * Full-scene PixiJS renderer for Sea Turtle / Sprite Travel Slice 1.
+ * Full-scene PixiJS renderer for Sea Turtle Discovery / Animal Reaction Slice.
  * Maintains layer hierarchy:
- *   farBackground -> midground -> gameplayWorld -> gupActor -> foreground -> effects -> HUD
+ *   farBackground -> midground -> gameplayWorld (reef arch, turtle, gup, obstacles) -> foreground -> effects -> HUD
  *
- * Implements smooth camera follow, multi-plane parallax depth, and real-time state visualization.
+ * Implements smooth continuous discovery approach, interactive scan wave, and living turtle reactions.
  */
 
 export interface TravelRenderSnapshot {
   readonly subX: number;
   readonly subY: number;
+  readonly subVx: number;
   readonly subPitch: number;
   readonly speedRatio: number;
   readonly isBoosting: boolean;
@@ -53,6 +55,13 @@ export interface TravelRenderSnapshot {
   readonly radioMessage: string;
   readonly radioTimer: number;
   readonly time: number;
+  // Discovery State
+  readonly inDiscoveryZone: boolean;
+  readonly canScan: boolean;
+  readonly isScanning: boolean;
+  readonly scanProgress: number;
+  readonly isReadyForRescue: boolean;
+  readonly turtleReactionState: TurtleState;
 }
 
 export class PixiTravelRenderer {
@@ -67,8 +76,10 @@ export class PixiTravelRenderer {
   private effectsLayer: Container;
   private hudLayer: Container;
 
-  // Actor
+  // Actors & World Props
   private gupActor: GupActor;
+  public turtleActor: TurtleActor;
+  private reefArchSprite: Sprite;
 
   // Background graphics
   private bgGraphics: Graphics;
@@ -93,14 +104,26 @@ export class PixiTravelRenderer {
   private hudRadioAvatarText: Text;
   private hudProgressBar: Graphics;
   private hudProgressGup: Text;
-  private hudMilestoneIcons: Text;
+
+  // Contextual Scan HUD Button
+  public hudScanBtnContainer: Container;
+  private hudScanBtnBg: Graphics;
+  private hudScanBtnText: Text;
+  private hudScanBtnIcon: Text;
+
+  // Rescue Ready Banner HUD
+  private hudReadyBanner: Container;
+  private hudReadyText: Text;
+  private hudReadySubText: Text;
 
   private mission: MissionData;
   private gup: GupData;
+  private onScanClick?: () => void;
 
-  constructor(mission: MissionData, gup: GupData) {
+  constructor(mission: MissionData, gup: GupData, onScanClick?: () => void) {
     this.mission = mission;
     this.gup = gup;
+    this.onScanClick = onScanClick;
     this.app = new Application();
 
     this.farBackgroundLayer = new Container();
@@ -123,8 +146,14 @@ export class PixiTravelRenderer {
 
     this.distantMantaSprite = new Sprite(ProvisionalAssetFactory.getMantaTexture());
     this.gupActor = new GupActor(gup, mission);
+    this.turtleActor = new TurtleActor();
 
-    // Initialize HUD texts with safe defaults
+    this.reefArchSprite = new Sprite(ProvisionalAssetFactory.getReefArchTexture());
+    this.reefArchSprite.anchor.set(0.5, 0.9);
+    this.reefArchSprite.position.set(2480, 680);
+    this.reefArchSprite.scale.set(1.25);
+
+    // Initialize HUD texts
     const titleStyle = new TextStyle({
       fontFamily: "system-ui, sans-serif",
       fontSize: 18,
@@ -157,9 +186,42 @@ export class PixiTravelRenderer {
 
     this.hudProgressBar = new Graphics();
     this.hudProgressGup = new Text({ text: gup.icon, style: new TextStyle({ fontSize: 16 }) });
-    this.hudMilestoneIcons = new Text({
-      text: "🔦 ⚡ 🛠️",
-      style: new TextStyle({ fontSize: 14, fill: "#b0bec5" })
+
+    // Scan Action Button
+    this.hudScanBtnContainer = new Container();
+    this.hudScanBtnBg = new Graphics();
+    this.hudScanBtnIcon = new Text({
+      text: "🔍",
+      style: new TextStyle({ fontSize: 26 })
+    });
+    this.hudScanBtnText = new Text({
+      text: "SCAN / 정밀 스캔 분석",
+      style: new TextStyle({
+        fontFamily: "system-ui, sans-serif",
+        fontSize: 16,
+        fontWeight: "bold",
+        fill: "#ffffff"
+      })
+    });
+
+    // Ready Banner
+    this.hudReadyBanner = new Container();
+    this.hudReadyText = new Text({
+      text: "🟢 READY FOR RESCUE",
+      style: new TextStyle({
+        fontFamily: "system-ui, sans-serif",
+        fontSize: 20,
+        fontWeight: "bold",
+        fill: "#00e676"
+      })
+    });
+    this.hudReadySubText = new Text({
+      text: "3개소 그물 결속 부위 분석 완료 — 구조 준비 완료",
+      style: new TextStyle({
+        fontFamily: "system-ui, sans-serif",
+        fontSize: 13,
+        fill: "#e0f2f1"
+      })
     });
   }
 
@@ -195,13 +257,15 @@ export class PixiTravelRenderer {
     this.midgroundLayer.addChild(this.fishContainer);
     this.midgroundLayer.addChild(this.jellyfishContainer);
 
-    // 4. Gameplay World (Includes streams, rings, obstacles, and GUP Actor)
+    // 4. Gameplay World (Reef Arch, Streams, Rings, Obstacles, Turtle, GUP Actor)
+    this.gameplayWorldLayer.addChild(this.reefArchSprite);
     this.gameplayWorldLayer.addChild(this.currentStreamsGraphics);
     this.gameplayWorldLayer.addChild(this.boostRingsContainer);
     this.gameplayWorldLayer.addChild(this.obstaclesContainer);
+    this.gameplayWorldLayer.addChild(this.turtleActor);
     this.gameplayWorldLayer.addChild(this.gupActor);
 
-    // 5. Foreground (Cinematic depth)
+    // 5. Foreground
     this.foregroundLayer.addChild(this.foregroundKelpGraphics);
 
     // 6. Effects
@@ -258,6 +322,38 @@ export class PixiTravelRenderer {
     this.hudRadioContainer.addChild(this.hudRadioText);
     this.hudRadioContainer.visible = false;
     this.hudLayer.addChild(this.hudRadioContainer);
+
+    // Contextual SCAN Action Button (Bottom Center above radio)
+    this.hudScanBtnContainer.position.set(490, 570);
+    this.hudScanBtnContainer.eventMode = "static";
+    this.hudScanBtnContainer.cursor = "pointer";
+    this.hudScanBtnContainer.on("pointerdown", (e) => {
+      e.stopPropagation();
+      if (this.onScanClick) this.onScanClick();
+    });
+
+    this.hudScanBtnContainer.addChild(this.hudScanBtnBg);
+    this.hudScanBtnIcon.position.set(22, 10);
+    this.hudScanBtnText.position.set(62, 16);
+    this.hudScanBtnContainer.addChild(this.hudScanBtnIcon);
+    this.hudScanBtnContainer.addChild(this.hudScanBtnText);
+    this.hudScanBtnContainer.visible = false;
+    this.hudLayer.addChild(this.hudScanBtnContainer);
+
+    // Rescue Ready Banner (Top Center)
+    this.hudReadyBanner.position.set(440, 20);
+    const bannerBg = new Graphics();
+    bannerBg.roundRect(0, 0, 400, 52, 16);
+    bannerBg.fill({ color: 0x00332c, alpha: 0.92 });
+    bannerBg.stroke({ color: 0x00e676, width: 2 });
+    this.hudReadyBanner.addChild(bannerBg);
+
+    this.hudReadyText.position.set(20, 8);
+    this.hudReadySubText.position.set(20, 32);
+    this.hudReadyBanner.addChild(this.hudReadyText);
+    this.hudReadyBanner.addChild(this.hudReadySubText);
+    this.hudReadyBanner.visible = false;
+    this.hudLayer.addChild(this.hudReadyBanner);
   }
 
   /**
@@ -282,7 +378,19 @@ export class PixiTravelRenderer {
     this.renderBoostRings(snapshot);
     this.renderObstacles(snapshot);
 
-    // 4. Update authoritative GUP Actor
+    // 4. Update authoritative Sea Turtle Actor
+    const turtleInput: TurtlePresentationInput = {
+      gupX: snapshot.subX,
+      gupY: snapshot.subY,
+      gupSpeed: Math.abs(snapshot.subVx),
+      isScanning: snapshot.isScanning,
+      scanProgress: snapshot.scanProgress,
+      isReadyForRescue: snapshot.isReadyForRescue,
+      time: snapshot.time
+    };
+    this.turtleActor.update(turtleInput, dt);
+
+    // 5. Update authoritative GUP Actor
     const gupState: GupPresentationState = {
       x: snapshot.subX,
       y: snapshot.subY,
@@ -297,13 +405,13 @@ export class PixiTravelRenderer {
     };
     this.gupActor.update(gupState, dt);
 
-    // 5. Foreground Parallax (Kelp silhouettes close to camera)
+    // 6. Foreground Parallax (Kelp silhouettes close to camera)
     this.renderForeground(snapshot);
 
-    // 6. Effects (Bubbles, Sparks)
+    // 7. Effects (Bubbles, Sparks)
     this.renderEffects(snapshot);
 
-    // 7. HUD Update
+    // 8. HUD Update
     this.updateHud(snapshot);
   }
 
@@ -321,7 +429,7 @@ export class PixiTravelRenderer {
     this.bgGraphics.rect(0, 300, w, 420);
     this.bgGraphics.fill({ color: 0x000c18, alpha: 0.7 });
 
-    // Caustic Sunbeams (Drifting slowly)
+    // Caustic Sunbeams
     this.causticsGraphics.clear();
     for (let i = 0; i < 5; i++) {
       const baseX = ((i * 320 - cameraX * 0.12 + time * 18) % 1600) - 200;
@@ -333,7 +441,7 @@ export class PixiTravelRenderer {
       this.causticsGraphics.fill({ color: 0x80deea, alpha: 0.05 + Math.sin(time * 2 + i) * 0.02 });
     }
 
-    // Distant Manta Silhouette Parallax (moves slowly across background)
+    // Distant Manta Silhouette Parallax
     const mantaX = ((1400 - cameraX * 0.18 + time * 24) % 1800) - 200;
     const mantaY = 220 + Math.sin(time * 0.8) * 40;
     this.distantMantaSprite.position.set(mantaX, mantaY);
@@ -358,7 +466,7 @@ export class PixiTravelRenderer {
       const screenX = boid.x - cameraX * 0.6;
       const screenY = boid.y - cameraY * 0.6;
       sprite.position.set(screenX, screenY);
-      sprite.scale.set(boid.scale * 0.85);
+      sprite.scale.set((boid.scale || 1.0) * 0.85);
       sprite.alpha = 0.75;
       sprite.rotation = Math.sin(snapshot.time * 6 + i) * 0.12;
     }
@@ -379,7 +487,7 @@ export class PixiTravelRenderer {
       const screenX = jf.x - cameraX * 0.7;
       const screenY = jf.y - cameraY * 0.7;
       sprite.position.set(screenX, screenY);
-      sprite.scale.set(jf.scale * (1.0 + Math.sin(snapshot.time * 3 + i) * 0.1));
+      sprite.scale.set((jf.scale || 1.0) * (1.0 + Math.sin(snapshot.time * 3 + i) * 0.1));
       sprite.alpha = 0.65 + Math.sin(snapshot.time * 2 + i) * 0.2;
     }
   }
@@ -389,12 +497,10 @@ export class PixiTravelRenderer {
     this.currentStreamsGraphics.clear();
 
     for (const stream of currentStreams) {
-      // Flowing glowing current ribbon
       this.currentStreamsGraphics.roundRect(stream.worldX, stream.y, stream.width, stream.height, 24);
       this.currentStreamsGraphics.fill({ color: 0x00e5ff, alpha: 0.15 + Math.sin(time * 4) * 0.04 });
       this.currentStreamsGraphics.stroke({ color: 0x80deea, width: 2, alpha: 0.4 });
 
-      // Flow streamline arrows inside current
       const flowOffset = (time * 180) % 80;
       for (let fx = stream.worldX + flowOffset; fx < stream.worldX + stream.width - 40; fx += 90) {
         this.currentStreamsGraphics.moveTo(fx, stream.y + stream.height / 2);
@@ -440,7 +546,7 @@ export class PixiTravelRenderer {
 
     while (this.obstaclesContainer.children.length < obstacles.length) {
       const obs = obstacles[this.obstaclesContainer.children.length];
-      const kind = obs.kind.includes("coral") ? "coral" : obs.kind.includes("kelp") ? "seaweed_cluster" : "rock";
+      const kind = obs.kind.includes("coral") ? "coral" : obs.kind.includes("seaweed") ? "seaweed_cluster" : "rock";
       const sprite = new Sprite(ProvisionalAssetFactory.getObstacleTexture(kind, obs.color));
       sprite.anchor.set(0.5, 0.5);
       this.obstaclesContainer.addChild(sprite);
@@ -462,7 +568,6 @@ export class PixiTravelRenderer {
     const { cameraX, time } = snapshot;
     this.foregroundKelpGraphics.clear();
 
-    // Foreground Kelp Fronds passing rapidly near camera (Depth immersion)
     for (let k = 0; k < 6; k++) {
       const fx = ((k * 420 - cameraX * 1.35) % 1800) - 200;
       const sway = Math.sin(time * 2.2 + k) * 24;
@@ -515,7 +620,17 @@ export class PixiTravelRenderer {
   }
 
   private updateHud(snapshot: TravelRenderSnapshot): void {
-    const { subX, worldLength, radioMessage, radioTimer, readiness } = snapshot;
+    const {
+      subX,
+      worldLength,
+      radioMessage,
+      radioTimer,
+      inDiscoveryZone,
+      canScan,
+      isScanning,
+      isReadyForRescue,
+      time
+    } = snapshot;
 
     // Progress Bar Track
     const progress = Math.min(1.0, Math.max(0, subX / worldLength));
@@ -539,6 +654,34 @@ export class PixiTravelRenderer {
     } else {
       this.hudRadioContainer.visible = false;
     }
+
+    // Contextual SCAN Button
+    if (inDiscoveryZone && !isReadyForRescue) {
+      this.hudScanBtnContainer.visible = true;
+      const pulse = 1.0 + Math.sin(time * 6) * 0.04;
+      this.hudScanBtnBg.clear();
+      this.hudScanBtnBg.roundRect(0, 0, 300, 54, 18);
+
+      if (isScanning) {
+        this.hudScanBtnBg.fill({ color: 0x00838f, alpha: 0.95 });
+        this.hudScanBtnBg.stroke({ color: 0x80deea, width: 3 });
+        this.hudScanBtnText.text = "스캔 중... (Analyzing...)";
+      } else {
+        this.hudScanBtnBg.fill({ color: 0x006064, alpha: 0.92 });
+        this.hudScanBtnBg.stroke({ color: 0x00e5ff, width: 2.5 });
+        this.hudScanBtnText.text = "SCAN / 정밀 스캔 분석";
+      }
+      this.hudScanBtnContainer.scale.set(pulse);
+    } else {
+      this.hudScanBtnContainer.visible = false;
+    }
+
+    // Ready for Rescue Banner
+    if (isReadyForRescue) {
+      this.hudReadyBanner.visible = true;
+    } else {
+      this.hudReadyBanner.visible = false;
+    }
   }
 
   public destroy(): void {
@@ -550,3 +693,4 @@ export class PixiTravelRenderer {
     }
   }
 }
+

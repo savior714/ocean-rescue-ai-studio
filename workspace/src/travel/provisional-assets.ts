@@ -590,6 +590,423 @@ export class ProvisionalAssetFactory {
     this.cache.set(key, tex);
     return tex;
   }
+
+  /**
+   * Generates a provisional Sea Turtle Carapace (Shell) Texture.
+   */
+  public static getSeaTurtleCarapaceTexture(): Texture {
+    const key = "turtle_carapace";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 240;
+    canvas.height = 180;
+    const ctx = canvas.getContext("2d")!;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    // 1. Carapace Outer Shadow / Rim
+    ctx.fillStyle = "#1b382b";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 102, 74, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Main Carapace Gradient (Deep olive to golden amber)
+    const shellGrad = ctx.createRadialGradient(-15, -20, 15, 0, 0, 100);
+    shellGrad.addColorStop(0, "#8da858"); // warm olive highlight
+    shellGrad.addColorStop(0.35, "#527339");
+    shellGrad.addColorStop(0.7, "#354e28");
+    shellGrad.addColorStop(1, "#1e2e17");
+
+    ctx.fillStyle = shellGrad;
+    ctx.strokeStyle = "#1b2a15";
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 96, 68, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 3. Scute Plates (Geometric vertebral and costal scutes with dark grooved margins)
+    ctx.strokeStyle = "rgba(25, 40, 20, 0.85)";
+    ctx.lineWidth = 2.5;
+
+    // Center vertebral ridge scutes
+    const scuteCenters = [-52, -18, 18, 52];
+    for (let i = 0; i < scuteCenters.length; i++) {
+      const sx = scuteCenters[i];
+      ctx.fillStyle = "rgba(180, 210, 120, 0.18)";
+      ctx.beginPath();
+      ctx.moveTo(sx - 16, 0);
+      ctx.lineTo(sx - 8, -24);
+      ctx.lineTo(sx + 8, -24);
+      ctx.lineTo(sx + 16, 0);
+      ctx.lineTo(sx + 8, 24);
+      ctx.lineTo(sx - 8, 24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Radiating growth rings within scutes
+      ctx.fillStyle = "rgba(255, 235, 150, 0.12)";
+      ctx.beginPath();
+      ctx.ellipse(sx, 0, 7, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Costal Lateral Scutes (Upper & Lower)
+    for (let i = 0; i < 3; i++) {
+      const lx = -35 + i * 36;
+      // Top costal
+      ctx.beginPath();
+      ctx.moveTo(lx - 12, -26);
+      ctx.lineTo(lx, -56);
+      ctx.lineTo(lx + 24, -54);
+      ctx.lineTo(lx + 14, -26);
+      ctx.stroke();
+
+      // Bottom costal
+      ctx.beginPath();
+      ctx.moveTo(lx - 12, 26);
+      ctx.lineTo(lx, 56);
+      ctx.lineTo(lx + 24, 54);
+      ctx.lineTo(lx + 14, 26);
+      ctx.stroke();
+    }
+
+    // 4. Marginal Rim Scutes (Outer scalloped edge)
+    ctx.strokeStyle = "rgba(240, 230, 170, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 91, 63, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Sea Turtle Plastron (Belly) Texture.
+   */
+  public static getSeaTurtlePlastronTexture(): Texture {
+    const key = "turtle_plastron";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 220;
+    canvas.height = 160;
+    const ctx = canvas.getContext("2d")!;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const bellyGrad = ctx.createRadialGradient(cx, cy - 10, 10, cx, cy, 80);
+    bellyGrad.addColorStop(0, "#fff9c4"); // soft warm cream
+    bellyGrad.addColorStop(0.5, "#f0e68c");
+    bellyGrad.addColorStop(1, "#c5b358");
+
+    ctx.fillStyle = bellyGrad;
+    ctx.strokeStyle = "#8c7b30";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 82, 54, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Sea Turtle Head Texture.
+   */
+  public static getSeaTurtleHeadTexture(): Texture {
+    const key = "turtle_head";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 110;
+    canvas.height = 80;
+    const ctx = canvas.getContext("2d")!;
+    const cx = 35;
+    const cy = 40;
+
+    // Neck base
+    const neckGrad = ctx.createLinearGradient(0, 20, 40, 20);
+    neckGrad.addColorStop(0, "#3e5628");
+    neckGrad.addColorStop(1, "#607d3b");
+    ctx.fillStyle = neckGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 22);
+    ctx.bezierCurveTo(20, 20, 35, 24, 45, 28);
+    ctx.lineTo(45, 52);
+    ctx.bezierCurveTo(30, 56, 15, 56, 0, 52);
+    ctx.closePath();
+    ctx.fill();
+
+    // Cranium & Snout
+    const headGrad = ctx.createRadialGradient(50, 34, 6, 50, 36, 40);
+    headGrad.addColorStop(0, "#8cb04a");
+    headGrad.addColorStop(0.6, "#557434");
+    headGrad.addColorStop(1, "#2e421c");
+
+    ctx.fillStyle = headGrad;
+    ctx.strokeStyle = "#203014";
+    ctx.lineWidth = 2.5;
+
+    ctx.beginPath();
+    ctx.moveTo(25, 25);
+    ctx.bezierCurveTo(45, 12, 75, 16, 92, 34); // crown to beak tip
+    ctx.bezierCurveTo(98, 40, 96, 48, 86, 52); // sharp hooked rhamphotheca (beak)
+    ctx.bezierCurveTo(70, 56, 50, 60, 25, 50); // lower jaw to throat
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Nostril
+    ctx.fillStyle = "#1e2b14";
+    ctx.beginPath();
+    ctx.ellipse(84, 33, 2.5, 1.8, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Jaw Line
+    ctx.strokeStyle = "#1b2611";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(88, 42);
+    ctx.bezierCurveTo(74, 42, 58, 40, 48, 44);
+    ctx.stroke();
+
+    // Temporal scales pattern
+    ctx.fillStyle = "rgba(230, 245, 180, 0.3)";
+    ctx.beginPath();
+    ctx.ellipse(40, 28, 6, 4, 0.4, 0, Math.PI * 2);
+    ctx.ellipse(50, 24, 5, 3.5, 0.2, 0, Math.PI * 2);
+    ctx.ellipse(36, 38, 5, 3.5, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Sea Turtle Eye Texture.
+   */
+  public static getSeaTurtleEyeTexture(): Texture {
+    const key = "turtle_eye";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 36;
+    canvas.height = 36;
+    const ctx = canvas.getContext("2d")!;
+    const cx = 18;
+    const cy = 18;
+
+    // Dark almond eye socket
+    ctx.fillStyle = "#152010";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 14, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Warm deep amber/brown iris
+    const irisGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 10);
+    irisGrad.addColorStop(0, "#d7ccc8");
+    irisGrad.addColorStop(0.4, "#5d4037");
+    irisGrad.addColorStop(0.8, "#271c19");
+    irisGrad.addColorStop(1, "#0d0a08");
+
+    ctx.fillStyle = irisGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 10, 8.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Large dark expressive pupil
+    ctx.fillStyle = "#050505";
+    ctx.beginPath();
+    ctx.ellipse(cx + 1, cy, 6, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Specular glass light catch (two moisture glints)
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.beginPath();
+    ctx.arc(cx - 2, cy - 3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.beginPath();
+    ctx.arc(cx + 3, cy + 2, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Sea Turtle Fore Flipper (Paddle) Texture.
+   */
+  public static getSeaTurtleForeFlipperTexture(): Texture {
+    const key = "turtle_fore_flipper";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 180;
+    canvas.height = 80;
+    const ctx = canvas.getContext("2d")!;
+
+    // Flipper blade (tapered hydrodynamic wing)
+    const flipperGrad = ctx.createLinearGradient(10, 40, 160, 40);
+    flipperGrad.addColorStop(0, "#48622c");
+    flipperGrad.addColorStop(0.4, "#6d8f3e");
+    flipperGrad.addColorStop(0.8, "#8bb252");
+    flipperGrad.addColorStop(1, "#364c1e");
+
+    ctx.fillStyle = flipperGrad;
+    ctx.strokeStyle = "#1e2e12";
+    ctx.lineWidth = 2.5;
+
+    ctx.beginPath();
+    ctx.moveTo(10, 35); // shoulder joint
+    ctx.bezierCurveTo(40, 10, 110, 12, 168, 38); // leading edge wing curve
+    ctx.bezierCurveTo(150, 60, 90, 72, 40, 60); // trailing feathered edge
+    ctx.bezierCurveTo(20, 55, 10, 48, 10, 35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Scale plates on leading wing edge
+    ctx.fillStyle = "rgba(255, 240, 180, 0.25)";
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.ellipse(35 + i * 24, 25 + i * 2, 8 - i * 0.8, 5 - i * 0.5, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Sea Turtle Hind Flipper Texture.
+   */
+  public static getSeaTurtleHindFlipperTexture(): Texture {
+    const key = "turtle_hind_flipper";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 90;
+    canvas.height = 50;
+    const ctx = canvas.getContext("2d")!;
+
+    const grad = ctx.createRadialGradient(20, 25, 5, 45, 25, 40);
+    grad.addColorStop(0, "#739943");
+    grad.addColorStop(1, "#33491f");
+
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = "#1b2910";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(8, 25);
+    ctx.bezierCurveTo(25, 10, 65, 12, 82, 25);
+    ctx.bezierCurveTo(65, 42, 25, 40, 8, 25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Ancient Reef Arch / Anchor Rock Texture.
+   */
+  public static getReefArchTexture(): Texture {
+    const key = "reef_arch";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 380;
+    canvas.height = 460;
+    const ctx = canvas.getContext("2d")!;
+
+    // Massive coral reef arch formation
+    const archGrad = ctx.createLinearGradient(0, 460, 0, 50);
+    archGrad.addColorStop(0, "#1f2d3d");
+    archGrad.addColorStop(0.5, "#2e4057");
+    archGrad.addColorStop(0.8, "#3e5c76");
+    archGrad.addColorStop(1, "#1d2d44");
+
+    ctx.fillStyle = archGrad;
+    ctx.strokeStyle = "#0d1b2a";
+    ctx.lineWidth = 4;
+
+    ctx.beginPath();
+    ctx.moveTo(20, 460);
+    ctx.bezierCurveTo(30, 280, 70, 160, 160, 80);
+    ctx.bezierCurveTo(240, 20, 320, 80, 360, 220);
+    ctx.bezierCurveTo(380, 340, 370, 420, 360, 460);
+    ctx.lineTo(280, 460);
+    ctx.bezierCurveTo(290, 340, 280, 220, 240, 180);
+    ctx.bezierCurveTo(180, 140, 130, 240, 100, 460);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Sprouting sea sponges & pink encrusting coralline algae
+    const algaeColors = ["#e91e63", "#f06292", "#ba68c8", "#ff7043", "#4db6ac"];
+    for (let i = 0; i < 16; i++) {
+      ctx.fillStyle = algaeColors[i % algaeColors.length];
+      const ax = 50 + (i * 20) % 290;
+      const ay = 100 + (i * 24) % 320;
+      ctx.beginPath();
+      ctx.ellipse(ax, ay, 12 + (i % 4) * 4, 8 + (i % 3) * 3, i * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Generates a provisional Sonar Scanner Wave Texture.
+   */
+  public static getScanWaveTexture(): Texture {
+    const key = "scan_wave";
+    if (this.cache.has(key)) return this.cache.get(key)!;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 160;
+    canvas.height = 160;
+    const ctx = canvas.getContext("2d")!;
+    const cx = 80;
+    const cy = 80;
+
+    const ringGrad = ctx.createRadialGradient(cx, cy, 40, cx, cy, 76);
+    ringGrad.addColorStop(0, "rgba(0, 229, 255, 0)");
+    ringGrad.addColorStop(0.7, "rgba(0, 229, 255, 0.4)");
+    ringGrad.addColorStop(0.95, "rgba(255, 255, 255, 0.85)");
+    ringGrad.addColorStop(1, "rgba(0, 229, 255, 0)");
+
+    ctx.fillStyle = ringGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 76, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = Texture.from(canvas);
+    this.cache.set(key, tex);
+    return tex;
+  }
 }
 
 function adjustColorBrightness(hex: string, percent: number): string {
