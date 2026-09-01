@@ -805,8 +805,6 @@ export class RescueEngine {
       currentSpeed: 0,
       isBoosting: false,
       boostTimer: 0,
-      shieldEnergy: 0,
-      maxShield: 100,
       companionAvatar: this.mission.companionAvatar,
       scale: 1.35,
       isDocked: true,

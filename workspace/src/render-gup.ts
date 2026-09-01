@@ -8,11 +8,14 @@ export interface GupRenderOptions {
   currentSpeed?: number;
   isBoosting?: boolean;
   boostTimer?: number;
-  shieldEnergy?: number;
-  maxShield?: number;
+  collisionWobble?: number;
+  readinessMilestones?: {
+    searchlight: boolean;
+    thruster: boolean;
+    cutter: boolean;
+  };
   companionAvatar?: string;
   scale?: number;
-  lightBonus?: number;
   isDocked?: boolean;
   armExtended?: boolean;
   armTargetX?: number;
@@ -21,9 +24,9 @@ export interface GupRenderOptions {
 }
 
 /**
- * High-Fidelity Vector Modeling and Rendering Engine for Octonauts GUP Submarines.
- * Provides detailed procedural hulls, glossy glass canopies, cockpit interiors,
- * rotating ducted propulsion, dynamic lighting, and GUP-specific signature features.
+ * Living Actor Procedural Rendering Engine for Ocean Rescue Submarines (GUPs).
+ * Renders smooth hydrodynamic hulls, glossy glass canopies, cockpit crew,
+ * ducted spinning propellers, wake bubble plumes, and visible rescue equipment states.
  */
 export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRenderOptions) {
   const {
@@ -31,11 +34,11 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
     color = "#ffc107",
     accentColor = "#ff9800",
     subPitch = 0,
-    currentSpeed = 100,
+    currentSpeed = 120,
     isBoosting = false,
     boostTimer = 0,
-    shieldEnergy = 0,
-    maxShield = 100,
+    collisionWobble = 0,
+    readinessMilestones = { searchlight: false, thruster: false, cutter: false },
     companionAvatar = "🐧",
     scale = 1.0,
     isDocked = false,
@@ -47,55 +50,25 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
 
   ctx.save();
   ctx.scale(scale, scale);
+
+  // Collision vibration wobble
+  if (collisionWobble > 0) {
+    const wobbleAngle = Math.sin(time * 0.05) * collisionWobble * 0.15;
+    ctx.rotate(wobbleAngle);
+  }
+
   if (!isDocked) {
     ctx.rotate(subPitch);
   }
 
   const t = time * 0.003;
-  const propRotation = (time * (isBoosting ? 0.045 : 0.015 * (1 + currentSpeed / 120))) % (Math.PI * 2);
+  const propRotation = (time * (isBoosting ? 0.05 : 0.018 * (1 + currentSpeed / 120))) % (Math.PI * 2);
 
-  // 1. ENERGY SHIELD BUBBLE (If active)
-  if (shieldEnergy > 0 && maxShield > 0) {
-    ctx.save();
-    const shieldRatio = Math.min(1.0, shieldEnergy / maxShield);
-    const shieldAlpha = 0.35 + Math.sin(t * 4) * 0.1 + shieldRatio * 0.35;
-    
-    // Outer shield glow
-    ctx.strokeStyle = `rgba(0, 229, 255, ${shieldAlpha})`;
-    ctx.lineWidth = 3.5;
-    ctx.shadowColor = "#00e5ff";
-    ctx.shadowBlur = 18;
-    ctx.beginPath();
-    ctx.ellipse(2, 0, 68, 44, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Shield Hex / Energy Pattern
-    ctx.strokeStyle = `rgba(128, 222, 234, ${shieldAlpha * 0.5})`;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, 56, -0.8, 0.8);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 0, 56, Math.PI - 0.8, Math.PI + 0.8);
-    ctx.stroke();
-
-    // Inner shield fill
-    const shieldFill = ctx.createRadialGradient(0, 0, 20, 0, 0, 68);
-    shieldFill.addColorStop(0, "rgba(0, 229, 255, 0.02)");
-    shieldFill.addColorStop(0.8, `rgba(0, 229, 255, ${shieldRatio * 0.15})`);
-    shieldFill.addColorStop(1, `rgba(0, 229, 255, ${shieldRatio * 0.25})`);
-    ctx.fillStyle = shieldFill;
-    ctx.beginPath();
-    ctx.ellipse(2, 0, 68, 44, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // 2. JET / TURBO EXHAUST PLUME (Behind Thruster)
+  // 1. JET / TURBO EXHAUST PLUME (Behind Thruster)
   if (isBoosting || boostTimer > 0) {
     ctx.save();
-    const flameLength = 65 + Math.random() * 25;
-    const flameWidth = 14 + Math.random() * 6;
+    const flameLength = 70 + Math.sin(time * 0.08) * 15;
+    const flameWidth = 16 + Math.cos(time * 0.06) * 4;
 
     // Outer plasma flame
     const outerFlame = ctx.createLinearGradient(-48, 0, -48 - flameLength, 0);
@@ -129,9 +102,19 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
     ctx.closePath();
     ctx.fill();
     ctx.restore();
+  } else if (readinessMilestones.thruster) {
+    // Auxiliary thruster ready glow
+    ctx.save();
+    ctx.fillStyle = "rgba(0, 229, 255, 0.35)";
+    ctx.shadowColor = "#00e5ff";
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.ellipse(-52, 0, 16, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
-  // 3. REAR PROPULSION / THRUSTER NOZZLE & DUCT
+  // 2. REAR PROPULSION / THRUSTER NOZZLE & DUCT
   ctx.save();
   // Thruster Pylon Mount
   ctx.fillStyle = "#263238";
@@ -171,10 +154,10 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.restore();
   ctx.restore();
 
-  // 4. MAIN HULL GEOMETRY (Multi-Stage Gradient & 3D Shading)
+  // 3. MAIN HULL GEOMETRY (Multi-Stage Gradient & 3D Shading)
   ctx.save();
-  ctx.shadowColor = "rgba(0, 10, 30, 0.55)";
-  ctx.shadowBlur = 14;
+  ctx.shadowColor = "rgba(0, 10, 30, 0.45)";
+  ctx.shadowBlur = 16;
   ctx.shadowOffsetY = 6;
 
   // Main hull shape
@@ -200,7 +183,7 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.stroke();
   ctx.restore();
 
-  // 5. LOWER KEEL ACCENT BELLY / STRIPE
+  // 4. LOWER KEEL ACCENT BELLY / STRIPE
   ctx.save();
   const bellyGrad = ctx.createLinearGradient(0, 6, 0, 32);
   bellyGrad.addColorStop(0, accentColor);
@@ -225,7 +208,7 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.stroke();
   ctx.restore();
 
-  // 6. GUP-SPECIFIC SIGNATURE MODELING DETAILS
+  // 5. GUP-SPECIFIC SIGNATURE MODELING DETAILS
   if (gupId === "gup-a") {
     // === GUP-A: Anglerfish Stalk Lure & Yellow Tail Fins ===
     ctx.save();
@@ -238,19 +221,19 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
     ctx.bezierCurveTo(38, -45, 52, -42, 54, -28);
     ctx.stroke();
 
-    // Bioluminescent Lure Bulb
-    const lureGlow = 0.7 + Math.sin(t * 6) * 0.3;
+    // Bioluminescent Lure Bulb (Soft pulse)
+    const lureGlow = 0.75 + Math.sin(t * 5) * 0.25;
     ctx.fillStyle = "#ffffff";
     ctx.shadowColor = "#00e5ff";
-    ctx.shadowBlur = 16 * lureGlow;
+    ctx.shadowBlur = 18 * lureGlow;
     ctx.beginPath();
-    ctx.arc(54, -26, 6.5, 0, Math.PI * 2);
+    ctx.arc(54, -28, 6.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Inner bright bulb
     ctx.fillStyle = "#00e5ff";
     ctx.beginPath();
-    ctx.arc(54, -26, 4, 0, Math.PI * 2);
+    ctx.arc(54, -28, 4, 0, Math.PI * 2);
     ctx.fill();
 
     // Dorsal Fin
@@ -319,40 +302,9 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
       ctx.stroke();
     }
     ctx.restore();
-  } else if (gupId === "gup-d") {
-    // === GUP-D: Multi-Claw Crab Dual Arm Mounts & Armor Plates ===
-    ctx.save();
-    // Side Grabber Joint Mounts
-    ctx.fillStyle = "#4a148c";
-    ctx.beginPath();
-    ctx.arc(22, 16, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#e1bee7";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Heavy Tread Base or Claw arm folded
-    ctx.fillStyle = "#311b92";
-    ctx.beginPath();
-    ctx.roundRect(10, 18, 22, 8, 3);
-    ctx.fill();
-    ctx.restore();
-  } else if (gupId === "gup-e") {
-    // === GUP-E: Medical Ambulance Cross & Specimen Pod ===
-    ctx.save();
-    // Medical Cross Badge
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(-16, 0, 11, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#e53935";
-    ctx.fillRect(-22, -3, 12, 6);
-    ctx.fillRect(-19, -6, 6, 12);
-    ctx.restore();
   }
 
-  // 7. DIVE PLANE / STABILIZER FINS
+  // 6. DIVE PLANE / STABILIZER FINS
   ctx.save();
   const finAngle = Math.sin(t * 3) * 0.08 - subPitch * 0.5;
   ctx.translate(2, 10);
@@ -369,7 +321,7 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.stroke();
   ctx.restore();
 
-  // 8. COCKPIT BUBBLE CANOPY (Glossy Glass & Interior Pilot)
+  // 7. COCKPIT BUBBLE CANOPY (Glossy Glass & Interior Pilot)
   ctx.save();
   const canopyX = 14;
   const canopyY = -7;
@@ -387,7 +339,7 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.fillStyle = (Math.cos(t * 7) > 0) ? "#ffea00" : "#ff1744";
   ctx.fillRect(canopyX - 2, canopyY + 8, 4, 3);
 
-  // Pilot & Companion Inside Cockpit
+  // Pilot Inside Cockpit
   ctx.font = "18px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -425,7 +377,7 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.stroke();
   ctx.restore();
 
-  // 9. NOSE HEADLIGHT FIXTURE & LENS
+  // 8. NOSE HEADLIGHT FIXTURE & LENS (Reacts to Searchlight Readiness)
   ctx.save();
   ctx.fillStyle = "#cfd8dc";
   ctx.strokeStyle = "#37474f";
@@ -437,14 +389,33 @@ export function renderGupSubmarine(ctx: CanvasRenderingContext2D, options: GupRe
   ctx.stroke();
 
   // Glowing headlight lens
-  ctx.fillStyle = "#fffde7";
-  ctx.shadowColor = "#fff59d";
-  ctx.shadowBlur = 12;
+  ctx.fillStyle = readinessMilestones.searchlight ? "#ffff8d" : "#fffde7";
+  ctx.shadowColor = readinessMilestones.searchlight ? "#ffff00" : "#fff59d";
+  ctx.shadowBlur = readinessMilestones.searchlight ? 20 : 12;
   ctx.beginPath();
   ctx.arc(47, 0, 4, -Math.PI / 2, Math.PI / 2);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
+
+  // 9. RESCUE CUTTER / TOOL EQUIPMENT READINESS INDICATOR ON NOSE
+  if (readinessMilestones.cutter) {
+    ctx.save();
+    ctx.fillStyle = "#d32f2f";
+    ctx.shadowColor = "#ff1744";
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(48, 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#78909c";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(42, 10);
+    ctx.lineTo(48, 12);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // 10. ARTICULATED HYDRAULIC RESCUE ARM (If docked or actively rescuing)
   if (isDocked || armExtended) {
@@ -462,7 +433,7 @@ function renderMechanicalRescueArm(
   gupId: string,
   targetX: number,
   targetY: number,
-  time: number
+  _time: number
 ) {
   ctx.save();
   const startX = 36;
@@ -512,14 +483,13 @@ function renderMechanicalRescueArm(
   ctx.lineTo(targetX, targetY);
   ctx.stroke();
 
-  // End Effector Tool Head (Laser / Claw / Magnet)
+  // End Effector Tool Head
   ctx.save();
   ctx.translate(targetX, targetY);
   const toolAngle = Math.atan2(targetY - midY, targetX - midX);
   ctx.rotate(toolAngle);
 
   if (gupId === "gup-c" || gupId === "young-whale") {
-    // Magnetic Tow Clamp
     ctx.fillStyle = "#1565c0";
     ctx.fillRect(-4, -10, 16, 20);
     ctx.fillStyle = "#ff1744";
@@ -527,7 +497,6 @@ function renderMechanicalRescueArm(
     ctx.fillStyle = "#2979ff";
     ctx.fillRect(12, 2, 6, 8);
   } else if (gupId === "gup-d" || gupId === "crab") {
-    // Heavy Dual Claw
     ctx.strokeStyle = "#ab47bc";
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -537,7 +506,6 @@ function renderMechanicalRescueArm(
     ctx.arc(8, 10, 12, -1.2, 0);
     ctx.stroke();
   } else {
-    // Precision Laser Emitter Head
     ctx.fillStyle = "#ffa000";
     ctx.fillRect(0, -5, 12, 10);
     ctx.fillStyle = "#d32f2f";
